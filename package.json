@@ -1,0 +1,12 @@
+{
+  "name": "singular",
+  "version": "1.0.0",
+  "description": "Application module system",
+  "dependencies": {
+    "toposort": "~0.2.10"
+  },
+  "main": "src/singular.js",
+  "scripts" : {
+    "test":"node test/singular.js"
+  }
+}
