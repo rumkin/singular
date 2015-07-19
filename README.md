@@ -5,17 +5,16 @@ Installation
 
 Singular could be installed with NPM:
 
-````bash
+```bash
 npm install singular
-
-````
+```
 
 Usage
 ===
 
-Instantiate and configure new singular instance
+Instantiate and configure new singular instance.
 
-````javascript
+```javascript
 var Singular = require('singular');
 
 var config = {
@@ -26,7 +25,7 @@ var config = {
 var singular = new Singular(config);
 ```
 
-Define factories and values using module. You can do it with methods `value` or `factory` too.
+Define factories and values using method `module`. You can do it with methods `value` or `factory` too.
 
 ```javascript
 singular.module({
@@ -54,7 +53,7 @@ singular.module({
 Inject dependencies with `run` method. Singular has methods `configure` and `inject` which are semantic aliases
 to method `run`.
 
-```javacript
+```javascript
 // Inject value and factory
 singular.run(function(value, factory){
     console.log('Value is %s', value); // -> Value is 1
@@ -70,5 +69,4 @@ singular.configure(function($$){
 singular.inject(function(logger){
     logger('Hello world'); // -> 'Hello world'
 });
-
-````
+```
