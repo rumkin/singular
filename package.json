@@ -6,7 +6,10 @@
     "toposort": "~0.2.10"
   },
   "main": "src/singular.js",
-  "scripts" : {
-    "test":"node test/singular.js"
+  "scripts": {
+    "test": "node test/singular.js"
+  },
+  "devDependencies": {
+    "eslint": "^1.6.0"
   }
 }

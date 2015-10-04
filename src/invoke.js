@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = invoke;
 module.exports.newScope = newScope;
 module.exports.getArgs = getArgs;
@@ -20,7 +22,9 @@ function invoke(soft, scope, callback) {
     var _scope = newScope.call(scope);
 
     Object.keys(scope).forEach(function(key){
-        _scope[key] = scope[key];
+      Object.defineProperty(_scope, key, {
+        value: scope[key]
+      });
     });
 
     var args = getArgs(callback).map(function(name){

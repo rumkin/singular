@@ -1,6 +1,7 @@
+'use strict';
+
 var toposort = require('toposort');
 var invoke = require('./invoke');
-var util = require('util');
 
 module.exports = Singular;
 module.exports.new = function(config) {
@@ -24,13 +25,19 @@ function Singular(config) {
 }
 
 /**
- * Batch add items to singular scope. Module should be an object and each property is a value or a factory. Each property
- * of source object is value or factory. If property is a function than it used as a factory otherwise it's a value.
+ * Batch add items to singular scope. Module should be an object and each
+ * property is a value or a factory. Each property of source object is value or
+ * factory. If property is a function than it used as a factory otherwise
+ * it's a value.
+ *
  * @param {object} source Target object
  * @returns {Singular}
  */
 Singular.prototype.module = function(source) {
-    if (!source || typeof source !== 'object') throw new Error('Argument #1 should be an object');
+    if (!source || typeof source !== 'object') {
+      throw new Error('Argument #1 should be an object');
+    }
+
     var self = this;
 
     Object.getOwnPropertyNames(source).forEach(function(name){
@@ -52,7 +59,9 @@ Singular.prototype.module = function(source) {
  * @returns {Singular}
  */
 Singular.prototype.value = function(name, value) {
-    if (this.hasEntity(name)) throw new Error('Name "' + name + '" already in use.');
+    if (this.hasEntity(name)) {
+      throw new Error('Name "' + name + '" already in use.');
+    }
 
     this.scope[name] = value;
     return this;
@@ -73,11 +82,13 @@ Singular.prototype.hasValue = function(name) {
  * @returns {*}
  */
 Singular.prototype.get = function(name) {
-    if (name in this.scope) return this.scope[name];
+    if (name in this.scope) {
+      return this.scope[name];
+    }
 
     var queue = this._resolveOrdered([name]);
     var item;
-    while(queue.length) {
+    while (queue.length) {
         item = queue.shift();
         if (item in this.scope === false) {
             try {
@@ -102,8 +113,13 @@ Singular.prototype.get = function(name) {
  * @returns {Singular}
  */
 Singular.prototype.factory = function(name, factory) {
-    if (name in this.scope) throw new Error('Overriding instantiated values deprecated');
-    if (typeof factory !== 'function') throw new Error('Factory should be a function');
+    if (name in this.scope) {
+      throw new Error('Overriding instantiated values deprecated');
+    }
+
+    if (typeof factory !== 'function') {
+      throw new Error('Factory should be a function');
+    }
 
     this.factories[name] = {
         deps:invoke.getArgs(factory),
@@ -130,7 +146,7 @@ Singular.prototype.hasFactory = function(name) {
 Singular.prototype.run =
 Singular.prototype.configure =
 Singular.prototype.inject = function(list, callback) {
-    if (arguments.length == 1) {
+    if (arguments.length === 1) {
         callback = list;
         list = invoke.getArgs(callback);
     } else if (typeof list === 'string') {
@@ -143,7 +159,7 @@ Singular.prototype.inject = function(list, callback) {
     var queue = this._resolveOrdered(list);
 
     var item;
-    while(queue.length) {
+    while (queue.length) {
         item = queue.shift();
         if (item in this.scope === false) {
             try {
@@ -173,7 +189,10 @@ Singular.prototype._resolveOrdered = function(list) {
     var topo = {};
 
     list.forEach(function(name){
-        if (! self.hasEntity(name)) throw new Error('Unknown dependency ' + name);
+        if (! self.hasEntity(name)) {
+          throw new Error('Unknown dependency ' + name);
+        }
+
         topo[name] = null;
     });
 
@@ -228,8 +247,11 @@ Singular.prototype._resolveOrdered = function(list) {
  * @returns {boolean}
  */
 Singular.prototype.hasEntity = function(name) {
-    if (name in this.scope) return true;
-    else if (name in this.factories) return true;
+    if (name in this.scope) {
+      return true;
+    } else if (name in this.factories) {
+      return true;
+    }
 
     return false;
 };

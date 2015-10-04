@@ -1,15 +1,18 @@
+'use strict';
+
 var assert = require('assert');
 var Singular = require('../src/singular');
 
+
 var config = {
-    debug : true
+    debug: true
 };
 
 var singular = Singular.new(config);
 
 singular.module({
-    testValue : 1,
-    testFactory : function() {
+    testValue: 1,
+    testFactory: function() {
         return 1;
     }
 });
