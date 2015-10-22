@@ -1,6 +1,6 @@
 {
   "name": "singular",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Application module system",
   "dependencies": {
     "toposort": "~0.2.10"

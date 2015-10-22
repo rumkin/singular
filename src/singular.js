@@ -91,15 +91,7 @@ Singular.prototype.get = function(name) {
     while (queue.length) {
         item = queue.shift();
         if (item in this.scope === false) {
-            try {
-                this.scope[item] = invoke(this.scope, this.factories[item].factory);
-            } catch (err) {
-                // TODO Add error processing
-                var error = new Error('Invalid factory "' + item + "':" + err.message);
-                error.name = 'Factory Error';
-                error.sub = [err];
-                throw error;
-            }
+            this.scope[item] = invoke(this.scope, this.factories[item].factory);
         }
     }
 
