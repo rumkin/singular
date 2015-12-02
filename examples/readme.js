@@ -16,9 +16,9 @@ singular.module({
         return 1;
     },
     // Define logger options
-    loggerOptions : function($$) {
+    loggerOptions : function(self) {
         return {
-            verbose : !! $$.config.debug
+            verbose : !! self.config.debug
         };
     },
     // Define logger which uses loggerOptions
@@ -36,8 +36,8 @@ singular.run(function(value, factory){
 });
 
 // Inject singular itself and get config value
-singular.configure(function($$){
-    console.log($$.config.dir); // -> __dirname value
+singular.configure(function(self){
+    console.log(self.config.dir); // -> __dirname value
 });
 
 // Inject logger and log something

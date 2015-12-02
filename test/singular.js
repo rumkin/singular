@@ -35,12 +35,12 @@ singular.inject('testValue', 'testFactory', function(testValue, testFactory){
     assert(testFactory === 1, 'testValue is 1');
 });
 
-singular.inject(function($$){
-    assert(singular === $$, '$$ equals to singular instance');
+singular.inject(function(self){
+    assert(singular === self, '$$ equals to singular instance');
 });
 
-singular.configure(function($$){
-    assert($$.config.debug === true, '$$.config.debug equals true');
+singular.configure(function(self){
+    assert(self.config.debug === true, '$$.config.debug equals true');
 });
 
 console.log('Test OK');

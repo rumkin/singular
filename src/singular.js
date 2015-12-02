@@ -2,6 +2,7 @@
 
 var toposort = require('toposort');
 var invoke = require('./invoke');
+var util = require('util');
 
 module.exports = Singular;
 module.exports.new = function(config) {
@@ -18,8 +19,12 @@ function Singular(config) {
     this.config = config;
     var self = this;
     this.scope = {
+        // TODO (rumkin) Deprecate usage of $$.
         get $$() {
             return self;
+        },
+        get self() {
+          return self;
         }
     };
 }
