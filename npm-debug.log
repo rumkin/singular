@@ -1,0 +1,90 @@
+0 info it worked if it ends with ok
+1 verbose cli [ '/home/vagrant/.nvm/versions/node/v4.2.1/bin/node',
+1 verbose cli   '/home/vagrant/.nvm/versions/node/v4.2.1/bin/npm',
+1 verbose cli   'publish' ]
+2 info using npm@3.3.9
+3 info using node@v4.2.1
+4 verbose publish [ '.' ]
+5 silly cache add args [ '.', null ]
+6 verbose cache add spec .
+7 silly cache add parsed spec Result {
+7 silly cache add   raw: '.',
+7 silly cache add   scope: null,
+7 silly cache add   name: null,
+7 silly cache add   rawSpec: '.',
+7 silly cache add   spec: '/apps/singular',
+7 silly cache add   type: 'directory' }
+8 verbose addLocalDirectory /home/vagrant/.npm/singular/1.0.5/package.tgz not in flight; packing
+9 info lifecycle singular@1.0.5~prepublish: singular@1.0.5
+10 silly lifecycle singular@1.0.5~prepublish: no script for prepublish, continuing
+11 verbose tar pack [ '/home/vagrant/.npm/singular/1.0.5/package.tgz',
+11 verbose tar pack   '/apps/singular' ]
+12 verbose tarball /home/vagrant/.npm/singular/1.0.5/package.tgz
+13 verbose folder /apps/singular
+14 verbose addLocalTarball adding from inside cache /home/vagrant/.npm/singular/1.0.5/package.tgz
+15 silly cache afterAdd singular@1.0.5
+16 verbose afterAdd /home/vagrant/.npm/singular/1.0.5/package/package.json not in flight; writing
+17 verbose afterAdd /home/vagrant/.npm/singular/1.0.5/package/package.json written
+18 silly publish { name: 'singular',
+18 silly publish   version: '1.0.5',
+18 silly publish   description: 'Application module system',
+18 silly publish   dependencies: { toposort: '~0.2.10' },
+18 silly publish   main: 'src/singular.js',
+18 silly publish   scripts: { test: 'node test/singular.js' },
+18 silly publish   devDependencies: { eslint: '^1.6.0' },
+18 silly publish   readme: 'Singular is an entry point for modular applications. It used for dependency injection in angular-like way.\n\nInstallation\n===\n\nSingular could be installed with NPM:\n\n```bash\nnpm install singular\n```\n\nUsage\n===\n\nInstantiate and configure new singular instance.\n\n```javascript\nvar Singular = require(\'singular\');\n\nvar config = {\n\tdebug : true,\n\tdir : __dirname\n};\n\nvar singular = new Singular(config);\n```\n\nDefine factories and values using method `module`. You can do it with methods `value` or `factory` too.\n\n```javascript\nsingular.module({\n\t// Simple value\n\tvalue : 1,\n\t// Define value factory\n\tfactory : function() {\n\t\treturn 1;\n\t},\n\t// Define logger options\n\tloggerOptions : function(self) {\n\t\treturn {\n\t\t\tverbose : !! self.config.debug\n\t\t};\n\t},\n\t// Define logger which uses loggerOptions\n\tlogger : function(loggerOptions) {\n\t\treturn function(message) {\n\t\t\tif (loggerOptions.verbose) console.log(message);\n\t\t};\n\t}\n});\n```\n\nInject dependencies with `run` method. Singular has methods `configure` and `inject` which are semantic aliases\nto method `run`.\n\n```javascript\n// Inject value and factory\nsingular.run(function(value, factory){\n    console.log(\'Value is %s\', value); // -> Value is 1\n    console.log(\'Factory is %s\', factory); // -> Factory is 1\n});\n\n// Inject singular itself and get config value\nsingular.configure(function(self){\n    console.log(self.config.dir); // -> __dirname\n});\n\n// Inject logger and log something\nsingular.inject(function(logger){\n    logger(\'Hello world\'); // -> \'Hello world\'\n});\n```\n',
+18 silly publish   readmeFilename: 'README.md',
+18 silly publish   gitHead: 'fdd6df9dfeff9567bb3100ae0d2fa329f36f66d4',
+18 silly publish   _id: 'singular@1.0.5',
+18 silly publish   _shasum: '27b97e25174ba35cac44cd1a261e434a00d8de72',
+18 silly publish   _from: '.' }
+19 verbose getPublishConfig undefined
+20 silly mapToRegistry name singular
+21 silly mapToRegistry using default registry
+22 silly mapToRegistry registry https://registry.npmjs.org/
+23 silly mapToRegistry uri https://registry.npmjs.org/singular
+24 verbose publish registryBase https://registry.npmjs.org/
+25 silly publish uploading /home/vagrant/.npm/singular/1.0.5/package.tgz
+26 verbose request uri https://registry.npmjs.org/singular
+27 verbose request sending authorization for write operation
+28 info attempt registry request try #1 at 3:08:19 PM
+29 verbose request using bearer token for auth
+30 verbose request id e3416a03bddb75bf
+31 http request PUT https://registry.npmjs.org/singular
+32 http 403 https://registry.npmjs.org/singular
+33 verbose headers { 'content-type': 'application/json',
+33 verbose headers   'cache-control': 'max-age=60',
+33 verbose headers   'content-length': '95',
+33 verbose headers   'accept-ranges': 'bytes',
+33 verbose headers   date: 'Wed, 02 Dec 2015 15:13:15 GMT',
+33 verbose headers   via: '1.1 varnish',
+33 verbose headers   connection: 'keep-alive',
+33 verbose headers   'x-served-by': 'cache-fra1245-FRA',
+33 verbose headers   'x-cache': 'MISS',
+33 verbose headers   'x-cache-hits': '0',
+33 verbose headers   'x-timer': 'S1449069194.948551,VS0,VE1021' }
+34 verbose request invalidating /home/vagrant/.npm/registry.npmjs.org/singular on PUT
+35 error publish Failed PUT 403
+36 verbose stack Error: "You cannot publish over the previously published version 1.0.5." : singular
+36 verbose stack     at makeError (/home/vagrant/.nvm/versions/node/v4.2.1/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:264:12)
+36 verbose stack     at CachingRegistryClient.<anonymous> (/home/vagrant/.nvm/versions/node/v4.2.1/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:252:14)
+36 verbose stack     at Request._callback (/home/vagrant/.nvm/versions/node/v4.2.1/lib/node_modules/npm/node_modules/npm-registry-client/lib/request.js:172:14)
+36 verbose stack     at Request.self.callback (/home/vagrant/.nvm/versions/node/v4.2.1/lib/node_modules/npm/node_modules/request/request.js:198:22)
+36 verbose stack     at emitTwo (events.js:87:13)
+36 verbose stack     at Request.emit (events.js:172:7)
+36 verbose stack     at Request.<anonymous> (/home/vagrant/.nvm/versions/node/v4.2.1/lib/node_modules/npm/node_modules/request/request.js:1082:10)
+36 verbose stack     at emitOne (events.js:82:20)
+36 verbose stack     at Request.emit (events.js:169:7)
+36 verbose stack     at IncomingMessage.<anonymous> (/home/vagrant/.nvm/versions/node/v4.2.1/lib/node_modules/npm/node_modules/request/request.js:1009:12)
+37 verbose statusCode 403
+38 verbose pkgid singular
+39 verbose cwd /apps/singular
+40 error Linux 3.13.0-61-generic
+41 error argv "/home/vagrant/.nvm/versions/node/v4.2.1/bin/node" "/home/vagrant/.nvm/versions/node/v4.2.1/bin/npm" "publish"
+42 error node v4.2.1
+43 error npm  v3.3.9
+44 error code E403
+45 error "You cannot publish over the previously published version 1.0.5." : singular
+46 error If you need help, you may report this error at:
+46 error     <https://github.com/npm/npm/issues>
+47 verbose exit [ 1, true ]
