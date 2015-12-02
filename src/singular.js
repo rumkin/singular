@@ -2,7 +2,6 @@
 
 var toposort = require('toposort');
 var invoke = require('./invoke');
-var util = require('util');
 
 module.exports = Singular;
 module.exports.new = function(config) {
