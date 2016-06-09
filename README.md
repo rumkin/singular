@@ -5,7 +5,7 @@ initialization and lazy initialization.
 ```javascript
 const Singular = require('singular');
 const singular = new Singular({
-	config: {
+	config: {		
 		mongo: {
 			host: 'localhost',
 			port: 27017,
@@ -15,15 +15,20 @@ const singular = new Singular({
 			host: 'localhost',
 			port: 6379
 		},
+		users: {
+			minAge: 18
+		}
 	}
 });
 
 singular.module(require('./mongo.js'));
 singular.module(require('./redis.js'));
 
-async function addUser(user) {
-	// Get initialized mongo and redis clients
-	var [db, redis] = await singular.inject('mongo', 'redis');
+async function addUser(name, age) {
+	// Get config and initialized mongo and redis clients
+	var [config, db, redis] = await singular.inject('config', 'mongo', 'redis');
+
+	config.users.minAge; // => 18
 	// ...
 }
 

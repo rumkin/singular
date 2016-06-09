@@ -9,20 +9,29 @@ module.exports = Singular;
 module.exports.new = function(config) {
     return new Singular(config);
 };
+module.exports.injector = function(config) {
+    var singular = new Singular(config);
+
+    return singular.injector();
+};
 
 /**
  * Singular is an angular-like dependency injector
  * @param {object} config Configuration object
  * @constructor
  */
-function Singular(config) {
-    this.factories = {};
-    this.config = config;
+function Singular(options) {
     var self = this;
+    var opts = Object.assign({config: {}}, options);
 
+    this.factories = {};
+    this.config = opts.config;
     this.scope = invoke.newScope({
         get app() {
-          return self;
+            return self;
+        },
+        get config() {
+            return self.config;
         }
     });
 }
@@ -38,7 +47,7 @@ function Singular(config) {
  */
 Singular.prototype.module = function(source) {
     if (!source || typeof source !== 'object') {
-      throw new Error('Argument #1 should be an object');
+        throw new Error('Argument #1 should be an object');
     }
 
     var self = this;
@@ -257,4 +266,23 @@ Singular.prototype.hasEntity = function(name) {
     }
 
     return false;
+};
+
+/**
+ * Return standalone inject method to direct usage.
+ *
+ * @return {function} Inject function.
+ * @example
+ *
+ * var inject = singular.injector();
+ *
+ * await inject('cofig', 'redis', 'etc');
+ */
+Singular.prototype.injector = function (){
+    var injector = this.inject.bind(this);
+    injector.get = this.get.bind(this);
+    injector.value = this.value.bind(this);
+    injector.module = this.module.bind(this);
+
+    return injector;
 };

@@ -11,6 +11,12 @@ const config = {
 const singular = Singular.new(config);
 
 describe('Singular', function(){
+    it('It should create injector', function(){
+        var injector = Singular.injector();
+
+        assert.equal(typeof injector, 'function', 'Injector is function');
+    });
+
     it('Should throw error on empty module() call', function(){
         assert.throws(
             function(){
