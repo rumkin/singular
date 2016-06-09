@@ -1,15 +1,20 @@
 {
   "name": "singular",
-  "version": "1.0.7",
+  "version": "2.0.0",
   "description": "Application module system",
   "dependencies": {
+    "bluebird": "^3.4.0",
+    "function-arguments": "^1.0.4",
     "toposort": "~0.2.10"
   },
   "main": "src/singular.js",
   "scripts": {
-    "test": "node test/singular.spec.js"
+    "cov": "istanbul cover node_modules/mocha/bin/_mocha -- -u exports -R spec test/**.spec.js",
+    "test": "mocha test/**.spec.js"
   },
   "devDependencies": {
-    "eslint": "^1.6.0"
+    "eslint": "^1.6.0",
+    "istanbul": "^0.4.3",
+    "mocha": "^2.5.3"
   }
 }

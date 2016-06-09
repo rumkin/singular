@@ -1,7 +1,9 @@
 'use strict';
 
-var toposort = require('toposort');
-var invoke = require('./invoke');
+const toposort = require('toposort');
+const invoke = require('./invoke');
+const fnArgs = require('function-arguments');
+const bluebird = require('bluebird');
 
 module.exports = Singular;
 module.exports.new = function(config) {
@@ -17,15 +19,12 @@ function Singular(config) {
     this.factories = {};
     this.config = config;
     var self = this;
-    this.scope = {
-        // TODO (rumkin) Deprecate usage of $$.
-        get $$() {
-            return self;
-        },
-        get self() {
+
+    this.scope = invoke.newScope({
+        get app() {
           return self;
         }
-    };
+    });
 }
 
 /**
@@ -86,17 +85,8 @@ Singular.prototype.hasValue = function(name) {
  * @returns {*}
  */
 Singular.prototype.get = function(name) {
-    if (name in this.scope) {
-      return this.scope[name];
-    }
-
-    var queue = this._resolveOrdered([name]);
-    var item;
-    while (queue.length) {
-        item = queue.shift();
-        if (item in this.scope === false) {
-            this.scope[item] = invoke(this.scope, this.factories[item].factory);
-        }
+    if (name in this.scope === false) {
+        throw new Error('No value "' + name + '"');
     }
 
     return this.scope[name];
@@ -110,7 +100,7 @@ Singular.prototype.get = function(name) {
  */
 Singular.prototype.factory = function(name, factory) {
     if (name in this.scope) {
-      throw new Error('Overriding instantiated values deprecated');
+      throw new Error('Instantiated values overwriting is deprecated');
     }
 
     if (typeof factory !== 'function') {
@@ -118,9 +108,10 @@ Singular.prototype.factory = function(name, factory) {
     }
 
     this.factories[name] = {
-        deps:invoke.getArgs(factory),
-        factory:factory
+        deps: fnArgs(factory),
+        factory: factory,
     };
+
     return this;
 };
 
@@ -130,7 +121,7 @@ Singular.prototype.factory = function(name, factory) {
  * @returns {boolean}
  */
 Singular.prototype.hasFactory = function(name) {
-    return name in this.factories;
+    return name in this.factories === true;
 };
 
 /**
@@ -142,27 +133,51 @@ Singular.prototype.hasFactory = function(name) {
 Singular.prototype.run =
 Singular.prototype.configure =
 Singular.prototype.inject = function(list, callback) {
-    if (arguments.length === 1) {
+    if (arguments.length === 1 && typeof list === 'function') {
         callback = list;
-        list = invoke.getArgs(callback);
+        list = fnArgs(callback);
     } else if (typeof list === 'string') {
         list = Array.prototype.slice.call(arguments);
-        callback = list.pop();
-    }
-
-    callback.$inject = list;
-
-    var queue = this._resolveOrdered(list);
-
-    var item;
-    while (queue.length) {
-        item = queue.shift();
-        if (item in this.scope === false) {
-            this.scope[item] = invoke(this.scope, this.factories[item].factory);
+        if (typeof list[list.length - 1] === 'function') {
+            callback = list.pop();
+        } else {
+            callback = null;
         }
     }
 
-    return invoke(this.scope, callback);
+    var self = this;
+    var queue;
+
+    try {
+        queue = this._resolveOrdered(list);
+    } catch (err) {
+        return Promise.reject(err);
+    }
+
+    return bluebird.mapSeries(queue, function(item){
+        var result = item;
+        if (item in self.scope) {
+            return self.scope[item];
+        }
+
+        var result = invoke(self.scope, self.factories[item].factory);
+
+        return Promise.resolve(result).then(function(instance){
+            self.scope[item] = instance;
+            return instance;
+        });
+    })
+    .then(function(){
+        var values = list.map(function(item) {
+            return self.scope[item];
+        });
+
+        if (callback) {
+            callback.apply(null, values);
+        }
+
+        return values;
+    });
 };
 
 /**

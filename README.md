@@ -1,12 +1,42 @@
-Singular is an entry point for modular applications. It used for dependency injection in angular-like way.
+Singular is modular applications boilerplate. It used for dependency injection
+in angular-like way with dependency resolving. It simplifies asynchronous
+initialization and lazy initialization.
+
+```javascript
+const Singular = require('singular');
+const singular = new Singular({
+	config: {
+		mongo: {
+			host: 'localhost',
+			port: 27017,
+			base: 'testBase'
+		},
+		redis: {
+			host: 'localhost',
+			port: 6379
+		},
+	}
+});
+
+singular.module(require('./mongo.js'));
+singular.module(require('./redis.js'));
+
+async function addUser(user) {
+	// Get initialized mongo and redis clients
+	var [db, redis] = await singular.inject('mongo', 'redis');
+	// ...
+}
+
+// ...
+```
 
 Installation
 ===
 
 Singular could be installed with NPM:
 
-```bash
-npm install singular
+```shell
+npm i singular
 ```
 
 Usage
@@ -36,9 +66,9 @@ singular.module({
 		return 1;
 	},
 	// Define logger options
-	loggerOptions : function(self) {
+	loggerOptions : function(app) {
 		return {
-			verbose : !! self.config.debug
+			verbose : !! app.config.debug
 		};
 	},
 	// Define logger which uses loggerOptions
@@ -61,8 +91,8 @@ singular.run(function(value, factory){
 });
 
 // Inject singular itself and get config value
-singular.configure(function(self){
-    console.log(self.config.dir); // -> __dirname
+singular.configure(function(app){
+    console.log(app.config.dir); // -> __dirname
 });
 
 // Inject logger and log something
