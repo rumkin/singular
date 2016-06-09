@@ -1,6 +1,6 @@
 {
   "name": "singular",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Application module system",
   "dependencies": {
     "bluebird": "^3.4.0",

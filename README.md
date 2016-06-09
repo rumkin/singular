@@ -2,6 +2,20 @@ Singular is modular applications boilerplate. It used for dependency injection
 in angular-like way with dependency resolving. It simplifies asynchronous
 initialization and lazy initialization.
 
+
+##Installation
+
+
+Singular could be installed with NPM:
+
+```shell
+npm i singular
+```
+
+## Example
+
+Singular is made for simple configuration and initializtion:
+
 ```javascript
 const Singular = require('singular');
 const singular = new Singular({
@@ -35,16 +49,7 @@ async function addUser(name, age) {
 // ...
 ```
 
-Installation
-===
-
-Singular could be installed with NPM:
-
-```shell
-npm i singular
-```
-
-Usage
+Usage and API
 ===
 
 Instantiate and configure new singular instance.
@@ -57,7 +62,7 @@ var config = {
 	dir : __dirname
 };
 
-var singular = new Singular(config);
+var singular = new Singular({config});
 ```
 
 Define factories and values using method `module`. You can do it with methods `value` or `factory` too.
@@ -85,23 +90,22 @@ singular.module({
 });
 ```
 
-Inject dependencies with `run` method. Singular has methods `configure` and `inject` which are semantic aliases
-to method `run`.
+Inject dependencies with `inject` method. Inject has aliases `configure` and `run`.
 
 ```javascript
-// Inject value and factory
-singular.run(function(value, factory){
-    console.log('Value is %s', value); // -> Value is 1
-    console.log('Factory is %s', factory); // -> Factory is 1
-});
-
-// Inject singular itself and get config value
-singular.configure(function(app){
-    console.log(app.config.dir); // -> __dirname
-});
-
 // Inject logger and log something
 singular.inject(function(logger){
     logger('Hello world'); // -> 'Hello world'
+});
+
+// Inject with promise and spreading
+singular.inject(['config', 'mongo']).spread(function(config, mongo){
+
+});
+
+// Regular promise
+singular.inject(['mongo', 'redis']).then(function(values){
+	values[0] // mongo
+	values[1] // redis
 });
 ```
