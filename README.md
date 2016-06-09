@@ -1,6 +1,5 @@
-Singular is modular applications boilerplate. It used for dependency injection
-in angular-like way with dependency resolving. It simplifies asynchronous
-initialization and lazy initialization.
+Singular is modular applications boilerplate. It's using for dependency injection
+in angular-like way with dependency resolving and asynchronous lazy initialization.
 
 
 ##Installation
