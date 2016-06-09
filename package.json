@@ -7,7 +7,7 @@
   },
   "main": "src/singular.js",
   "scripts": {
-    "test": "node test/singular.js"
+    "test": "node test/singular.spec.js"
   },
   "devDependencies": {
     "eslint": "^1.6.0"
