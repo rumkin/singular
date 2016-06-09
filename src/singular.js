@@ -4,6 +4,7 @@ const toposort = require('toposort');
 const invoke = require('./invoke');
 const fnArgs = require('function-arguments');
 const bluebird = require('bluebird');
+const EventEmitter = require('events').EventEmitter;
 
 module.exports = Singular;
 module.exports.new = function(config) {
@@ -21,6 +22,7 @@ module.exports.injector = function(config) {
  * @constructor
  */
 function Singular(options) {
+    EventEmitter.call(this);
     var self = this;
     var opts = Object.assign({config: {}}, options);
 
@@ -35,6 +37,8 @@ function Singular(options) {
         }
     });
 }
+
+Object.setPrototypeOf(Singular.prototype, EventEmitter.prototype);
 
 /**
  * Batch add items to singular scope. Module should be an object and each
