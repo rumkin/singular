@@ -186,7 +186,7 @@ Singular.prototype.inject = function(list, callback) {
         });
 
         if (callback) {
-            callback.apply(null, values);
+            return callback.apply(null, values);
         }
 
         return values;
