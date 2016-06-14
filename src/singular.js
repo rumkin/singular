@@ -177,6 +177,7 @@ Singular.prototype.inject = function(list, callback) {
 
         return Promise.resolve(result).then(function(instance){
             self.scope[item] = instance;
+            self.emit('module', item, instance);
             return instance;
         });
     })
