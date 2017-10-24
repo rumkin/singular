@@ -1,7 +1,7 @@
 Singular is modular applications boilerplate. It's using for dependency injection
 in angular-like way with dependency resolving and asynchronous lazy initialization.
 
-##Installation
+## Installation
 
 Singular could be installed with NPM:
 
