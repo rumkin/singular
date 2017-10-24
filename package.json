@@ -1,12 +1,13 @@
 {
   "name": "singular",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "Application module system",
   "dependencies": {
     "bluebird": "^3.4.0",
     "function-arguments": "^1.0.4",
     "toposort": "~0.2.10"
   },
+  "repository": "rumkin/singular",
   "main": "src/singular.js",
   "scripts": {
     "cov": "istanbul cover node_modules/mocha/bin/_mocha -- -u exports -R spec test/**.spec.js",
