@@ -44,17 +44,12 @@ function invoke(soft, scope, callback) {
  * @param {Object} data
  * @return {Object} Child scope
  */
-function newScope(data) {
+function newScope(values) {
     var subScope = {};
 
+    Object.assign(subScope, values);
     subScope.__proto__ = this;
-    if (typeof data === 'object') {
-        for (var name in data) {
-            if (data.hasOwnProperty(name)) {
-                subScope[name] = data[name];
-            }
-        }
-    }
     subScope.$new = newScope;
+
     return subScope;
 }

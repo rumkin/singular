@@ -3,15 +3,15 @@
 const toposort = require('toposort');
 const invoke = require('./invoke');
 const fnArgs = require('function-arguments');
-const bluebird = require('bluebird');
+const Promise = require('bluebird');
 const EventEmitter = require('events').EventEmitter;
 
 module.exports = Singular;
-module.exports.new = function(config) {
-    return new Singular(config);
+module.exports.new = function(options) {
+    return new Singular(options);
 };
-module.exports.injector = function(config) {
-    var singular = new Singular(config);
+module.exports.injector = function(options) {
+    var singular = new Singular(options);
 
     return singular.injector();
 };
@@ -167,7 +167,7 @@ Singular.prototype.inject = function(list, callback) {
         return Promise.reject(err);
     }
 
-    return bluebird.mapSeries(queue, function(item){
+    return Promise.mapSeries(queue, function(item){
         var result = item;
         if (item in self.scope) {
             return self.scope[item];
