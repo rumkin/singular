@@ -1,5 +1,8 @@
-Singular is application dependency manager. Its' modules are CommonJS-alike
-classes. Each module is using custom layout to avoid module names collision.
+Singular is dependency manager for modular applications. Its' modules are
+CommonJS-alike classes.
+
+Singular can load modules in runtime for example WASM modules or mock any module
+in test environment.
 
 ## Installation
 
@@ -62,10 +65,12 @@ const config = {
   },
 }
 
-const singular = new Singular({config})
+const singular = new Singular({
+  config,
+})
 ```
 
-Inject dependencies with `inject` method. Inject has aliases `configure` and `run`.
+Inject dependencies with `start` method.
 
 ```javascript
 // Inject logger and log something
@@ -80,33 +85,28 @@ singular.start()
 Define module using ES2019 syntax:
 
 ```javascript
-class UserModule extends Singular.Module {
+class GreetingModule extends Singular.Module {
   deps = {
     // Logger is required
     logger: true,
-    // Db is required too
-    db: true,
   }
 
   defaults = {
-    collection: 'users'
+    name: 'World'
   }
 
-  async start(config, {db, logger}, exports) {
-    exports.getById = function(id) {
-      return db.getCollection(config.collection)
-      .getById(id)
-      .then((result) => {
-        logger.info('User %s found: %s', id, result !== null)
-        return result
-      })
+  async start(config, scope, exports) {
+    const {logger} = scope
+
+    exports.greet = function(name) {
+      logger.log('Hello, %s!', name || config.name)
     }
 
     // Or
 
     return {
-      getById(id) {
-        // ...
+      greet(name) {
+        logger.log('Hello, %s!', name || config.name)
       },
     }
   }
