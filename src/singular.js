@@ -1,293 +1,255 @@
-'use strict';
+var toposort = require('toposort')
 
-const toposort = require('toposort');
-const invoke = require('./invoke');
-const fnArgs = require('function-arguments');
-const Promise = require('bluebird');
-const EventEmitter = require('events').EventEmitter;
+var Module = require('./module')
 
-module.exports = Singular;
-module.exports.new = function(options) {
-    return new Singular(options);
-};
-module.exports.injector = function(options) {
-    var singular = new Singular(options);
-
-    return singular.injector();
-};
-
-/**
- * Singular is an angular-like dependency injector
- * @param {object} config Configuration object
- * @constructor
- */
 function Singular(options) {
-    EventEmitter.call(this);
-    var self = this;
-    var opts = Object.assign({config: {}}, options);
+  this._isRunning = false
+  this._isStarting = false
+  this._isStopping = false
+  this._resolveOnStop = []
 
-    this.factories = {};
-    this.config = opts.config;
-    this.scope = invoke.newScope({
-        get app() {
-            return self;
-        },
-        get config() {
-            return self.config;
-        }
-    });
+  options = options || {}
+  var scope = options.scope || {}
+  var config = options.config || {}
+  var modules = options.modules || {}
+
+  this.scope = Object.assign({}, scope)
+  this.config = Object.assign({}, config)
+  this.modules = Object.assign({}, modules)
+
+  Object.assign(this.modules, modulesFromScope(scope))
+
+  if (this.modules.hasOwnProperty('singular')) {
+    throw new Error('Module name "singular" is reserved')
+  }
+
+  Object.getOwnPropertyNames(this.modules)
+  .forEach(function(name) {
+    if (name in this.scope === false) {
+      this.scope[name] = {}
+    }
+  }, this)
+
+  this.order = toposort(getNodesFromModules(this.modules))
+  .slice(1)
+  .reverse()
 }
 
-Object.setPrototypeOf(Singular.prototype, EventEmitter.prototype);
+Object.defineProperty(Singular.prototype, 'isRunning', {
+  get: function() {
+    return this._isRunning
+  },
+})
+Object.defineProperty(Singular.prototype, 'isStarting', {
+  get: function() {
+    return this._isStarting
+  },
+})
+Object.defineProperty(Singular.prototype, 'isStopping', {
+  get: function() {
+    return this._isStopping
+  },
+})
 
-/**
- * Batch add items to singular scope. Module should be an object and each
- * property is a value or a factory. Each property of source object is value or
- * factory. If property is a function than it used as a factory otherwise
- * it's a value.
- *
- * @param {object} source Target object
- * @returns {Singular}
- */
-Singular.prototype.module = function(source) {
-    if (!source || typeof source !== 'object') {
-        throw new Error('Argument #1 should be an object');
+Singular.prototype.setConfig = function(config) {
+  this.config = Object.assign({}, this.config, config)
+  return this
+}
+
+Singular.prototype.start = function() {
+  if (this.isRunning || this.isStarting) {
+    throw new Error('Already started')
+  }
+
+  var self = this
+  var ready = []
+
+  return wrapInPromise(this._start(this.order.slice(), ready))
+  .then(function() {
+    self._isRunning = true
+    return Object.assign({}, self.scope)
+  }, function(error) {
+    self._isStarting = false
+
+    function onStop() {
+      self._isRunning = false
+      self._isStopping = false
+      self._releaseAwaits()
     }
 
-    var self = this;
-
-    Object.getOwnPropertyNames(source).forEach(function(name){
-        var value = source[name];
-        if (typeof value === 'function') {
-            self.factory(name, value);
-        } else {
-            self.scope[name] = value;
-        }
-    });
-
-    return this;
-};
-
-/**
- * Define value/instantiated service with name
- * @param {string} name Item name
- * @param {*} value Item value
- * @returns {Singular}
- */
-Singular.prototype.value = function(name, value) {
-    if (this.hasEntity(name)) {
-      throw new Error('Name "' + name + '" already in use.');
-    }
-
-    this.scope[name] = value;
-    return this;
-};
-
-/**
- * Check if value/instance already exists
- * @param name
- * @returns {boolean}
- */
-Singular.prototype.hasValue = function(name) {
-    return name in this.scope;
-};
-
-/**
- * Get value with name. Invoke target and dependant factories if needed.
- * @param {string} name Value/instance name
- * @returns {*}
- */
-Singular.prototype.get = function(name) {
-    if (name in this.scope === false) {
-        throw new Error('No value "' + name + '"');
-    }
-
-    return this.scope[name];
-};
-
-/**
- * Register factory
- * @param {string} name
- * @param {function} factory
- * @returns {Singular}
- */
-Singular.prototype.factory = function(name, factory) {
-    if (name in this.scope) {
-      throw new Error('Instantiated values overwriting is deprecated');
-    }
-
-    if (typeof factory !== 'function') {
-      throw new Error('Factory should be a function');
-    }
-
-    this.factories[name] = {
-        deps: fnArgs(factory),
-        factory: factory,
-    };
-
-    return this;
-};
-
-/**
- * Check if factory exists
- * @param {string} name
- * @returns {boolean}
- */
-Singular.prototype.hasFactory = function(name) {
-    return name in this.factories === true;
-};
-
-/**
- * Inject dependencies and pass it to angular-like function
- * @param {string[]} list List of dependencies.
- * @param {function} callback Function to invoke with listed values as arguments
- * @returns {*|exports}
- */
-Singular.prototype.run =
-Singular.prototype.configure =
-Singular.prototype.inject = function(list, callback) {
-    if (arguments.length === 1 && typeof list === 'function') {
-        callback = list;
-        list = fnArgs(callback);
-    } else if (typeof list === 'string') {
-        list = Array.prototype.slice.call(arguments);
-        if (typeof list[list.length - 1] === 'function') {
-            callback = list.pop();
-        } else {
-            callback = null;
-        }
-    }
-
-    var self = this;
-    var queue;
-
-    try {
-        queue = this._resolveOrdered(list);
-    } catch (err) {
-        return Promise.reject(err);
-    }
-
-    return Promise.mapSeries(queue, function(item){
-        var result = item;
-        if (item in self.scope) {
-            return self.scope[item];
-        }
-
-        var result = invoke(self.scope, self.factories[item].factory);
-
-        return Promise.resolve(result).then(function(instance){
-            self.scope[item] = instance;
-            self.emit('module', item, instance);
-            return instance;
-        });
+    return wrapInPromise(self._stop(ready.reverse()))
+    .then(function() {
+      onStop()
+      throw error
+    }, function (stopError) {
+      onStop()
+      throw stopError
     })
-    .then(function(){
-        var values = list.map(function(item) {
-            return self.scope[item];
-        });
+  })
+}
 
-        if (callback) {
-            return callback.apply(null, values);
-        }
+Singular.prototype._start = function(order, ready) {
+  if (! order.length) {
+    this._isStarting = false
 
-        return values;
-    });
-};
+    return
+  }
 
-/**
- * Resolve and sort dependencies with list of value names
- * @param {Array} list
- * @returns {String[]} List of values ordered by dependency topology.
- * @private
- */
-Singular.prototype._resolveOrdered = function(list) {
-    var fulfil = [];
-    var self = this;
-    var topo = {};
+  this._isStarting = true
 
-    list.forEach(function(name){
-        if (! self.hasEntity(name)) {
-          throw new Error('Unknown dependency ' + name);
-        }
+  var self = this
+  var name = order[0]
 
-        topo[name] = null;
-    });
+  var scope = this.scope
+  var config = this.config
 
-    do {
-        Object.getOwnPropertyNames(topo).forEach(function(name){
-            var value = topo[name];
-            if (value === null) {
-                if (name in self.scope) {
-                    topo[name] = [];
-                    if (fulfil.indexOf(name) > -1) {
-                        fulfil.splice(fulfil.indexOf(name),1);
-                    }
-                } else if (name in self.factories) {
-                    value = topo[name] = self.factories[name].deps;
-                    value.forEach(function(dep){
-                        if (dep in topo === false) {
-                            if (! self.hasEntity(dep)) {
-                                throw new Error ('Unknown dependency ' + dep + ' of ' + name);
-                            }
-                            topo[dep] = null;
-                            fulfil.push(dep);
-                        }
-                    });
-                    if (fulfil.indexOf(name) > -1) {
-                        fulfil.splice(fulfil.indexOf(name),1);
-                    }
-                } else {
-                    throw new Error('Unknown dependecy ' + name);
-                }
-            }
-        });
-    } while (fulfil.length);
+  var module = this.modules[name]
 
-    var links = [];
-    Object.getOwnPropertyNames(topo).forEach(function(name){
-        var value = topo[name];
-        if (value.length) {
-            value.forEach(function(dep){
-                links.push([name, dep]);
-            });
-        } else {
-            links.push([name, null]);
-        }
-    });
+  var exports = this.scope[name]
+  var localScope = Object.create({
+    singular: this,
+  })
 
-    return toposort(links).reverse().slice(1);
-};
+  Object.getOwnPropertyNames(module.layout)
+  .forEach(function(localName) {
+    localScope[localName] = scope[module.layout[localName]]
+  })
 
-/**
- * Check if entity exists in values or factories.
- * @param {string} name Entity name
- * @returns {boolean}
- */
-Singular.prototype.hasEntity = function(name) {
-    if (name in this.scope) {
-      return true;
-    } else if (name in this.factories) {
-      return true;
+  return wrapInPromise(module.start(
+    Object.assign({}, config[name], module.defaults), localScope, exports
+  ))
+  .then(function (result) {
+    if (result !== void 0) {
+      scope[name] = result
+    }
+    else {
+      scope[name] = exports
     }
 
-    return false;
-};
+    ready.push(name)
+    // console.log({name, order, ready})
+    return self._start(order.slice(1), ready)
+  })
+}
 
-/**
- * Return standalone inject method to direct usage.
- *
- * @return {function} Inject function.
- * @example
- *
- * var inject = singular.injector();
- *
- * await inject('cofig', 'redis', 'etc');
- */
-Singular.prototype.injector = function (){
-    var injector = this.inject.bind(this);
-    injector.get = this.get.bind(this);
-    injector.value = this.value.bind(this);
-    injector.module = this.module.bind(this);
+Singular.prototype.stop = function() {
+  if (! this.isRunning || this.isStopping) {
+    return
+  }
 
-    return injector;
-};
+  var self = this
+
+  function onStop() {
+    self._isRunning = false
+    self._isStopping = false
+    self._releaseAwaits()
+  }
+
+  this._isStopping = true
+
+  return wrapInPromise(this._stop(this.order.slice().reverse()))
+  .then(onStop, function (error) {
+    onStop()
+    throw error
+  })
+}
+
+Singular.prototype._stop = function(order) {
+  if (order.length < 1) {
+    return
+  }
+
+  var self = this
+  var name = order[0]
+
+  return wrapInPromise(this.modules[name].stop(this.scope[name]))
+  .then(function() {
+    delete self.scope[name]
+    return self._stop(order.slice(1))
+  })
+}
+
+Singular.prototype._releaseAwaits = function() {
+  var resolveOnStop = this._resolveOnStop
+  this._resolveOnStop = []
+
+  resolveOnStop.forEach(function(resolve) {
+    resolve()
+  })
+}
+
+Singular.prototype.has = function(name) {
+  return this.modules.hasOwnProperty(name)
+}
+
+Singular.prototype.get = function(name) {
+  if (! this.has(name)) {
+    throw new Error('Service "' + name + '" not found')
+  }
+
+  return this.scope[name]
+}
+
+Singular.prototype.wait = function() {
+  return new Promise((resolve) => {
+    this._resolveOnStop = [...this._resolveOnStop, resolve]
+  })
+}
+
+function modulesFromScope(scope) {
+  const modules = {}
+  Object.getOwnPropertyNames(scope)
+  .forEach(function(name) {
+    var instance = scope[name]
+
+    modules[name] = {
+      defaults: {},
+      layout: {},
+      start() {
+        return instance
+      },
+      stop() {},
+    }
+  })
+
+  return modules
+}
+
+function getNodesFromModules(modules) {
+  var nodes = []
+
+  Object.getOwnPropertyNames(modules)
+  .forEach(function(name) {
+    var module = modules[name]
+    nodes.push(['', name])
+
+    Object.getOwnPropertyNames(module.layout)
+    .forEach(function(localName) {
+      var dependency = module.layout[localName]
+      if (! modules.hasOwnProperty(dependency)) {
+        throw new Error(
+          'Unknown dependency "'+ dependency + '" in module "' + name + '"'
+        )
+      }
+
+      if (module.deps[localName]) {
+        nodes.push([name, dependency])
+      }
+    })
+  })
+
+  return nodes
+}
+
+function wrapInPromise(value) {
+  if (value !== void 0 && typeof value.then === 'function') {
+    return value
+  }
+  else {
+    return  Promise.resolve(value)
+  }
+}
+
+module.exports = Singular
+
+Singular.Module = Module

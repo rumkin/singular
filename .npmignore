@@ -1,9 +1,12 @@
+.eslintrc
+.eslintignore
+.editorconfig
+.testuprc
+
 build/
 coverage/
-dist/
 local/
 logs/
-node_modules/
 pids/
 tmp/
 
@@ -11,9 +14,3 @@ tmp/
 .DS_Store
 Thumbs.db
 Desktop.ini
-
-# Runtime files
-*.lock
-*.log
-*.pid
-*.pid.lock

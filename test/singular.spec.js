@@ -1,236 +1,249 @@
-'use strict';
+const assert = require('assert')
+const Singular = require('../')
 
-const assert = require('assert');
-const Singular = require('../');
+function createModule({layout = {}, deps, defaults = {}, start, stop = () => {}, value} = {}) {
+  if (! start) {
+    start = () => value
+  }
 
+  const Class = class TestModule extends Singular.Module {
+    get defaults() {
+      return defaults
+    }
 
-const config = {
-    debug: true
-};
+    get deps() {
+      return deps || Object.getOwnPropertyNames(layout)
+      .reduce(function (result, name) {
+        result[name] = true
+        return result
+      }, {})
+    }
 
-const singular = Singular.new(config);
+    start(...args) {
+      return start(...args)
+    }
 
-describe('Singular', function(){
-    it('It should create injector', function(){
-        var injector = Singular.injector();
+    stop(...args) {
+      return stop(...args)
+    }
+  }
 
-        assert.equal(typeof injector, 'function', 'Injector is function');
-    });
+  return new Class(layout)
+}
 
-    it('Should throw error on empty module() call', function(){
-        assert.throws(
-            function(){
-                singular.module();
+module.exports = ({describe, it}) => describe('Singular', () => {
+  describe('#start()', () => {
+    // This test checks initialization order, layouts, and configuration
+    // resolution
+    it('Should resolve dependencies', () => {
+      const singular = new Singular({
+        config: {
+          b: {
+            value: 2,
+          },
+          c: {
+            value: 3,
+          },
+        },
+        modules: {
+          a: createModule({value: 1}),
+          b: createModule({
+            layout: {
+              x: 'a',
             },
-            /be an object/,
-            'Throw on non object module'
-        );
-    });
+            start({value}, {x}) {
+              return x + value
+            },
+          }),
+          c: createModule({
+            layout: {
+              x: 'b',
+            },
+            start({value}, {x}) {
+              return x * value
+            },
+          }),
+        },
+      })
 
-    describe('Values', function(){
-        it('Should add value with module()', function(){
-            singular.module({
-                testValue: 1
-            });
+      return singular.start()
+      .then((scope) => {
+        const {a, b, c} = scope
 
-            assert.ok(singular.hasValue('testValue'), 'testValue exists');
-            assert.ok(! singular.hasFactory('testValue'), 'testValue is not a factory');
-            assert.equal(singular.get('testValue'), 1, 'testValue is 1');
-        });
+        assert.equal(a, 1, 'a is 1')
+        assert.equal(b, 3, 'b is 3')
+        assert.equal(c, 9, 'c is 9')
+      })
+    })
 
-        it('Should add value with value()', function(){
-            singular.value('testValue2', 2);
+    it('Should resolve cycle dependencies when weak flags set', () => {
+      const serviceA = createModule({
+        layout: {
+          dep: 'b',
+        },
+        deps: {
+          dep: false,
+        },
+        start(config, {dep}, exports) {
+          exports.value = 1
+          exports.sum = function () {
+            return this.value + dep.value
+          }
+        },
+      })
 
-            assert.ok(singular.hasValue('testValue2'), 'testValue2 exists');
-            assert.equal(singular.get('testValue2'), 2, 'testValue2 is 2');
-        });
+      const serviceB = createModule({
+        layout: {
+          dep: 'a',
+        },
+        deps: {
+          dep: false,
+        },
+        start(config, {dep}, exports) {
+          exports.value = 1
+          exports.sum = function () {
+            return this.value + dep.value
+          }
+        },
+      })
 
-        it('Should throw when value not exists', function(){
-            assert.throws(
-                function(){
-                    singular.get('unexistedValue');
-                },
-                /unexistedValue/,
-                'Throw on non existing value'
-            );
-        });
+      const singular = new Singular({
+        modules: {
+          a: serviceA,
+          b: serviceB,
+        },
+      })
 
-        it('Should throw when value already exists', function(){
-            assert.throws(
-                function(){
-                    singular.value('testValue');
-                },
-                /in use/,
-                'Throw on duplicated value'
-            );
-        });
-    });
+      return singular.start()
+      .then((scope) => {
+        const {a, b} = scope
+        assert.equal(a.sum(), 2, 'a.sum() is 2')
+        assert.equal(b.sum(), 2, 'b.sum() is 2')
+      })
+    })
 
-    describe('Factories', function(){
-        it('Should add factory', function(){
-            singular.module({
-                testFactory: function() {
-                    return 1;
-                }
-            });
+    it('Should fail on cycle dependencies', () => {
+      let caught
 
-            assert.ok(singular.hasFactory('testFactory'), 'has testFactory');
-            assert.ok(! singular.hasValue('testFactory'), 'testFactory is not a value');
-        });
+      const serviceA = createModule({
+        layout: {
+          dep: 'b',
+        },
+      })
 
-        it('Should throw when factory exists', function(){
-            assert.throws(
-                function(){
-                    singular.factory('testValue', function(){});
-                },
-                /overwriting/i,
-                'Throw on non existing value'
-            );
-        });
+      const serviceB = createModule({
+        layout: {
+          dep: 'a',
+        },
+      })
 
-        it('Should throw when factory is not a function', function(){
-            assert.throws(
-                function(){
-                    singular.factory('fakeFactory', 1);
-                },
-                /should be a function/i,
-                'Throw on non existing value'
-            );
-        });
+      try {
+        new Singular({
+          modules: {
+            a: serviceA,
+            b: serviceB,
+          },
+        })
+      }
+      catch (error) {
+        caught = error
+      }
 
-        it('Should instantiate factory and call callback', function(){
-            return singular.inject('testFactory', function(value){
-                assert.equal(value, 1, 'testFactory result is 1');
-            });
-        });
+      assert.ok(caught !== void 0, 'Error caught')
+      assert.ok(/Cyclic/.test(caught.message), 'Cyclic dependency error')
+    })
 
-        it('Should resolve factory returned promise', function(){
-            singular.module({
-                promised() {
-                    return new Promise(function(resolve){
-                        setImmediate(resolve, 1);
-                    });
-                }
-            });
+    it('Should call Service#stop() on failure', () => {
+      let stopCalled = false
+      let thrown = false
 
-            return singular.inject(function(promised){
-                assert.equal(promised, 1, 'Promised value is 1');
-            });
-        });
+      const singular = new Singular({
+        config: {
+          b: {
+            value: 2,
+          },
+        },
+        modules: {
+          a: createModule({
+            stop() {
+              stopCalled = true
+            },
+          }),
+          b: createModule({
+            layout: {
+              x: 'a',
+            },
+            start() {
+              throw new Error('TEST_ERROR')
+            },
+          }),
+        },
+      })
 
-        it('Should instantiate factory and return promise', function(){
-            var promise = singular.inject('testFactory');
+      return singular.start()
+      .catch((error) => {
+        thrown = true
+        assert.equal(error.message, 'TEST_ERROR')
+      })
+      .then(() => {
+        assert.ok(stopCalled, 'stop called')
+        assert.ok(thrown, 'thrown')
+      })
+    })
+  })
 
-            assert.ok(typeof promise === 'object', 'Return object');
-            assert.ok(typeof promise.then === 'function', 'Return thenable');
+  describe('#stop', () => {
+    it('Should call Service#stop() in proper order', () => {
+      let count = 0
+      let aStopCalled = 0
+      let bStopCalled = 0
 
-            return promise.spread(function(value){
-                assert.equal(value, 1, 'testFactory returned as 1');
-            });
-        });
-    });
+      const singular = new Singular({
+        modules: {
+          a: createModule({
+            stop() {
+              aStopCalled = ++count
+            },
+          }),
+          b: createModule({
+            layout: {
+              x: 'a',
+            },
+            stop() {
+              bStopCalled = ++count
+            },
+          }),
+        },
+      })
 
-    describe('Resolving', function(){
-        it('Should resolve dependencies', function(){
-            singular.module({
-                a() {
-                    return 1;
-                },
-                b(a) {
-                    return a + 1;
-                },
-            });
+      return singular.start()
+      .then(() => singular.stop())
+      .then(() => {
+        assert.equal(aStopCalled, 2, 'A stopped last')
+        assert.equal(bStopCalled, 1, 'B stopped first')
+      })
+    })
 
-            return singular.inject(function(a, b){
-                assert.equal(a, 1, 'a is 1');
-                assert.equal(b, 2, 'b is 2');
-            });
-        });
+    it('Should release waiting', () => {
+      const singular = new Singular()
+      let count = 0
+      let stoppedAt = 0
+      let releasedAt = 0
 
-        it('Should inject empty deps list', function(){
-            return singular.inject(function(){
-                // Do nothing...
-            });
-        });
-
-        it('Should inject list of strings', function(){
-            return singular.inject('a', 'b', function(a, b){
-                assert.ok(a, 'a is defined');
-                assert.ok(b, 'b is defined');
-            });
-        });
-
-        it('Should inject array of strings', function(){
-            return singular.inject(['a', 'b'], function(a, b){
-                assert.ok(a, 'a is defined');
-                assert.ok(b, 'b is defined');
-            });
-        });
-
-        it('Should inject array of strings w/o callback', function(){
-            singular.inject(['a', 'b']);
-        });
-
-        it('Should inject array of strings w/o callback', function(){
-            singular.inject('a', 'b');
-        });
-
-        it('Should properly return resolved dependencies', function(){
-            return singular.inject(function(a, b){
-                assert.equal(a, 1, 'a is 1');
-                assert.equal(b, 2, 'b is 2');
-            });
-        });
-
-    });
-
-    describe('Errors', function(){
-        it('Should catch error from callback', function(){
-            return singular.inject(function(a){
-                throw new Error('test_error');
-            })
-            .catch(function(error){
-                return error;
-            })
-            .then(function(error){
-                assert.equal(error.message, 'test_error', 'Catch test error');
-            });
-        });
-
-        it('Should throw on cycle dependencies', function(){
-            singular.module({
-                d(c) {
-                    return 1 + c;
-                },
-                c(d) {
-                    return 1 + d;
-                },
-            });
-
-            return singular.inject(['d'])
-            .catch(function(error){
-                assert.ok(/cyclic/i.test(error.message), 'Cycle dependency detected');
-            });
-        });
-
-        it('Should throw on unexisted dependency', function(){
-            return singular.inject(['unexistedDependency'])
-            .catch(function(error){
-                assert.ok(/unknown dependency/i.test(error.message), 'Cycle dependency detected');
-            });
-        });
-
-        it('Should throw on unmet depended dependency', function(){
-            singular.module({
-                x1(x2) {
-                    return 1 + c;
-                }
-            });
-
-            return singular.inject(['x1'])
-            .catch(function(error){
-                assert.ok(/unknown dependency/i.test(error.message), 'Cycle dependency detected');
-            });
-        });
-    });
-});
+      return Promise.all([
+        singular.wait()
+        .then(() => {
+          releasedAt = ++count
+        }),
+        singular.start().then(() => {
+          stoppedAt = ++count
+          singular.stop()
+        }),
+      ])
+      .then(() => {
+        assert.equal(stoppedAt, 1, 'stopped before')
+        assert.equal(releasedAt, 2, 'released after')
+      })
+    })
+  })
+})

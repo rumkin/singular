@@ -1,21 +1,21 @@
 {
   "name": "singular",
-  "version": "2.4.2",
-  "description": "Application module system",
+  "version": "3.0.0",
+  "description": "Application dependencies layout manager",
   "dependencies": {
-    "bluebird": "^3.4.0",
-    "function-arguments": "^1.0.4",
-    "toposort": "~0.2.10"
+    "toposort": "^2.0.2"
   },
   "repository": "rumkin/singular",
   "main": "src/singular.js",
   "scripts": {
-    "cov": "istanbul cover node_modules/mocha/bin/_mocha -- -u exports -R spec test/**.spec.js",
-    "test": "mocha test/**.spec.js"
+    "test": "testup run test/**.spec.js"
   },
   "devDependencies": {
-    "eslint": "^1.6.0",
-    "istanbul": "^0.4.3",
-    "mocha": "^2.5.3"
+    "@testup/cli": "^0.4.0",
+    "@testup/console-reporter": "^0.1.1",
+    "@testup/core": "^0.1.2"
+  },
+  "engines": {
+    "node": ">=6.0"
   }
 }
