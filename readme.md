@@ -92,7 +92,7 @@ class UserModule extends Singular.Module {
     collection: 'users'
   }
 
-  async start(config), {db, logger}, exports) {
+  async start(config, {db, logger}, exports) {
     exports.getById = function(id) {
       return db.getCollection(config.collection)
       .getById(id)
