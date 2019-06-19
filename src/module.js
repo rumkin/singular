@@ -1,4 +1,5 @@
 function Module(layout) {
+  this.deps = Object.assign({}, this.constructor.deps)
   if (! layout) {
     layout = layoutFromDeps(this.deps)
   }
@@ -24,8 +25,8 @@ function layoutFromDeps(deps) {
   return layout
 }
 
-Module.prototype.deps = []
-Module.prototype.defaults = {}
+Module.deps = {}
+Module.defaults = {}
 Module.prototype.start = function() {}
 Module.prototype.stop = function() {}
 

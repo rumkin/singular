@@ -7,11 +7,11 @@ function createModule({layout = {}, deps, defaults = {}, start, stop = () => {},
   }
 
   const Class = class TestModule extends Singular.Module {
-    get defaults() {
+    static get defaults() {
       return defaults
     }
 
-    get deps() {
+    static get deps() {
       return deps || Object.getOwnPropertyNames(layout)
       .reduce(function (result, name) {
         result[name] = true

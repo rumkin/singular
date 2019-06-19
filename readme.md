@@ -86,12 +86,12 @@ Define module using ES2019 syntax:
 
 ```javascript
 class GreetingModule extends Singular.Module {
-  deps = {
+  static deps = {
     // Logger is required
     logger: true,
   }
 
-  defaults = {
+  static defaults = {
     name: 'World'
   }
 
@@ -105,8 +105,8 @@ class GreetingModule extends Singular.Module {
     // Or
 
     return {
-      greet(name) {
-        logger.log('Hello, %s!', name || config.name)
+      greet(name = config.name) {
+        logger.log('Hello, %s!', name)
       },
     }
   }
