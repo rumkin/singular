@@ -9,15 +9,12 @@ function Singular(options) {
   this._resolveOnStop = []
 
   options = options || {}
-  var scope = options.scope || {}
   var config = options.config || {}
   var modules = options.modules || {}
 
-  this.scope = Object.assign({}, scope)
+  this.scope = {}
   this.config = Object.assign({}, config)
   this.modules = Object.assign({}, modules)
-
-  Object.assign(this.modules, modulesFromScope(scope))
 
   if (this.modules.hasOwnProperty('singular')) {
     throw new Error('Module name "singular" is reserved')
@@ -51,8 +48,41 @@ Object.defineProperty(Singular.prototype, 'isStopping', {
   },
 })
 
-Singular.prototype.setConfig = function(config) {
-  this.config = Object.assign({}, this.config, config)
+Singular.prototype.registerModule = function(name, module) {
+  if (this.hasModule(name)) {
+    throw new Error('Module "' + name + '" already registered')
+  }
+
+  this.modules[name] = module
+  this.scope[name] = {}
+}
+
+Singular.prototype.unregisterModule = function(name) {
+  if (! this.hasModule(name)) {
+    return
+  }
+
+  delete this.modules[name]
+  delete this.scope[name]
+}
+
+Singular.prototype.hasModule = function(name) {
+  return this.modules.hasOwnProperty(name)
+}
+
+Singular.prototype.setConfig = function() {
+  var args = Array.prototype.slice.call(arguments)
+  var update
+
+  if (args.length > 1) {
+    update = {}
+    update[args[0]] = args[1]
+  }
+  else {
+    update = args[0]
+  }
+
+  this.config = Object.assign({}, this.config, update)
   return this
 }
 
@@ -64,7 +94,7 @@ Singular.prototype.start = function() {
   var self = this
   var ready = []
 
-  return wrapInPromise(this._start(this.order.slice(), ready))
+  return Promise.resolve(this._start(this.order.slice(), ready))
   .then(function() {
     self._isRunning = true
     return Object.assign({}, self.scope)
@@ -77,7 +107,7 @@ Singular.prototype.start = function() {
       self._releaseAwaits()
     }
 
-    return wrapInPromise(self._stop(ready.reverse()))
+    return Promise.resolve(self._stop(ready.reverse()))
     .then(function() {
       onStop()
       throw error
@@ -106,8 +136,16 @@ Singular.prototype._start = function(order, ready) {
   var module = this.modules[name]
 
   var exports = this.scope[name]
-  var localScope = Object.create({
-    singular: this,
+  var localScope = Object.create(null)
+
+  Object.defineProperty(localScope, 'singular', {
+    configurable: false,
+    value: this,
+  })
+
+  Object.defineProperty(localScope, 'moduleId', {
+    configurable: false,
+    value: name,
   })
 
   Object.getOwnPropertyNames(module.layout)
@@ -115,7 +153,7 @@ Singular.prototype._start = function(order, ready) {
     localScope[localName] = scope[module.layout[localName]]
   })
 
-  return wrapInPromise(module.start(
+  return Promise.resolve(module.start(
     Object.assign({}, config[name], module.defaults), localScope, exports
   ))
   .then(function (result) {
@@ -127,7 +165,6 @@ Singular.prototype._start = function(order, ready) {
     }
 
     ready.push(name)
-    // console.log({name, order, ready})
     return self._start(order.slice(1), ready)
   })
 }
@@ -147,7 +184,7 @@ Singular.prototype.stop = function() {
 
   this._isStopping = true
 
-  return wrapInPromise(this._stop(this.order.slice().reverse()))
+  return Promise.resolve(this._stop(this.order.slice().reverse()))
   .then(onStop, function (error) {
     onStop()
     throw error
@@ -162,7 +199,7 @@ Singular.prototype._stop = function(order) {
   var self = this
   var name = order[0]
 
-  return wrapInPromise(this.modules[name].stop(this.scope[name]))
+  return Promise.resolve(this.modules[name].stop(this.scope[name]))
   .then(function() {
     delete self.scope[name]
     return self._stop(order.slice(1))
@@ -178,41 +215,10 @@ Singular.prototype._releaseAwaits = function() {
   })
 }
 
-Singular.prototype.has = function(name) {
-  return this.modules.hasOwnProperty(name)
-}
-
-Singular.prototype.get = function(name) {
-  if (! this.has(name)) {
-    throw new Error('Service "' + name + '" not found')
-  }
-
-  return this.scope[name]
-}
-
 Singular.prototype.wait = function() {
   return new Promise((resolve) => {
     this._resolveOnStop = [...this._resolveOnStop, resolve]
   })
-}
-
-function modulesFromScope(scope) {
-  const modules = {}
-  Object.getOwnPropertyNames(scope)
-  .forEach(function(name) {
-    var instance = scope[name]
-
-    modules[name] = {
-      defaults: {},
-      layout: {},
-      start() {
-        return instance
-      },
-      stop() {},
-    }
-  })
-
-  return modules
 }
 
 function getNodesFromModules(modules) {
@@ -239,15 +245,6 @@ function getNodesFromModules(modules) {
   })
 
   return nodes
-}
-
-function wrapInPromise(value) {
-  if (value !== void 0 && typeof value.then === 'function') {
-    return value
-  }
-  else {
-    return  Promise.resolve(value)
-  }
 }
 
 module.exports = Singular
