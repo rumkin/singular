@@ -87,41 +87,44 @@ Singular.prototype.setConfig = function() {
 }
 
 Singular.prototype.start = function() {
-  if (this.isRunning || this.isStarting) {
-    throw new Error('Already started')
-  }
-
   var self = this
-  var ready = []
-
-  return Promise.resolve(this._start(this.order.slice(), ready))
-  .then(function() {
-    self._isRunning = true
-    return Object.assign({}, self.scope)
-  }, function(error) {
-    self._isStarting = false
-
-    function onStop() {
-      self._isRunning = false
-      self._isStopping = false
-      self._releaseAwaits()
+  return new Promise(function(resolve, reject) {
+    if (self.isRunning || self.isStarting) {
+      reject(new Error('Already started'))
+      return
     }
 
-    return Promise.resolve(self._stop(ready.reverse()))
+    var ready = []
+
+    Promise.resolve(self._start(self.order.slice(), ready))
     .then(function() {
-      onStop()
-      throw error
-    }, function (stopError) {
-      onStop()
-      throw stopError
+      self._isRunning = true
+      return Object.assign({}, self.scope)
+    }, function(error) {
+      self._isStarting = false
+
+      function onStop() {
+        self._isRunning = false
+        self._isStopping = false
+        self._releaseAwaits()
+      }
+
+      return Promise.resolve(self._stop(ready.reverse()))
+      .then(function() {
+        onStop()
+        throw error
+      }, function (stopError) {
+        onStop()
+        throw stopError
+      })
     })
+    .then(resolve, reject)
   })
 }
 
 Singular.prototype._start = function(order, ready) {
   if (! order.length) {
     this._isStarting = false
-
     return
   }
 
@@ -170,24 +173,28 @@ Singular.prototype._start = function(order, ready) {
 }
 
 Singular.prototype.stop = function() {
-  if (! this.isRunning || this.isStopping) {
-    return
-  }
-
   var self = this
 
-  function onStop() {
-    self._isRunning = false
-    self._isStopping = false
-    self._releaseAwaits()
-  }
+  return new Promise(function(resolve, reject) {
+    if (! self.isRunning || self.isStopping) {
+      resolve()
+      return
+    }
 
-  this._isStopping = true
+    function onStop() {
+      self._isRunning = false
+      self._isStopping = false
+      self._releaseAwaits()
+    }
 
-  return Promise.resolve(this._stop(this.order.slice().reverse()))
-  .then(onStop, function (error) {
-    onStop()
-    throw error
+    self._isStopping = true
+
+    Promise.resolve(self._stop(self.order.slice().reverse()))
+    .then(onStop, function (error) {
+      onStop()
+      throw error
+    })
+    .then(resolve, reject)
   })
 }
 

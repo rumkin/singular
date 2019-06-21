@@ -235,9 +235,10 @@ module.exports = ({describe, it}) => describe('Singular', () => {
         .then(() => {
           releasedAt = ++count
         }),
-        singular.start().then(() => {
+        singular.start()
+        .then(() => {
           stoppedAt = ++count
-          singular.stop()
+          return singular.stop()
         }),
       ])
       .then(() => {
