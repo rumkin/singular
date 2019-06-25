@@ -14,6 +14,7 @@ function Module(layout) {
   }
 
   this.layout = layout
+  this.defaults = this.constructor.defaults
 }
 
 function layoutFromDeps(deps) {

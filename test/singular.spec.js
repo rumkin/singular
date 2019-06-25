@@ -76,6 +76,29 @@ module.exports = ({describe, it}) => describe('Singular', () => {
       })
     })
 
+    it('Should use defaults', () => {
+      const service = createModule({
+        defaults: {
+          a: 1,
+        },
+        start(config, scope, exports) {
+          exports.value = config.a
+        },
+      })
+
+      const singular = new Singular({
+        modules: {
+          service,
+        },
+      })
+
+      return singular.start()
+      .then(({service: {value}}) => value)
+      .then((result) => {
+        assert.equal(result, 1, 'Value passed to config')
+      })
+    })
+
     it('Should resolve cycle dependencies when weak flags set', () => {
       const serviceA = createModule({
         layout: {
