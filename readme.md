@@ -111,8 +111,9 @@ class GreetingModule extends Singular.Module {
     }
   }
 
-  async stop() {
+  async stop(config, scope, exports) {
     // ... Do something to shutdown module gracefully ...
+    // ℹ️ exports here is an entry created by start() call.
   }
 }
 ```

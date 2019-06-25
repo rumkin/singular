@@ -206,7 +206,7 @@ Singular.prototype._stop = function(order) {
   var self = this
   var name = order[0]
 
-  return Promise.resolve(this.modules[name].stop(this.scope[name], this.config[name], this.scope))
+  return Promise.resolve(this.modules[name].stop(this.config[name], this.scope, this.scope[name]))
   .then(function() {
     delete self.scope[name]
     return self._stop(order.slice(1))
