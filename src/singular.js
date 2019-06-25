@@ -157,7 +157,7 @@ Singular.prototype._start = function(order, ready) {
   })
 
   return Promise.resolve(module.start(
-    Object.assign({}, config[name], module.defaults), localScope, exports
+    Object.assign({}, module.defaults, config[name]), localScope, exports
   ))
   .then(function (result) {
     if (result !== void 0) {
