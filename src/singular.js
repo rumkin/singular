@@ -94,9 +94,9 @@ Singular.prototype.start = function() {
       return
     }
 
-    var ready = []
+    self.ready = []
 
-    Promise.resolve(self._start(self.order.slice(), ready))
+    Promise.resolve(self._start(self.order.slice()))
     .then(function() {
       self._isRunning = true
       return Object.assign({}, self.scope)
@@ -109,7 +109,7 @@ Singular.prototype.start = function() {
         self._releaseAwaits()
       }
 
-      return Promise.resolve(self._stop(ready.reverse()))
+      return Promise.resolve(self._stop(self.ready.reverse()))
       .then(function() {
         onStop()
         throw error
@@ -122,7 +122,7 @@ Singular.prototype.start = function() {
   })
 }
 
-Singular.prototype._start = function(order, ready) {
+Singular.prototype._start = function(order) {
   if (! order.length) {
     this._isStarting = false
     return
@@ -139,22 +139,7 @@ Singular.prototype._start = function(order, ready) {
   var module = this.modules[name]
 
   var exports = this.scope[name]
-  var localScope = Object.create(null)
-
-  Object.defineProperty(localScope, 'singular', {
-    configurable: false,
-    value: this,
-  })
-
-  Object.defineProperty(localScope, 'moduleId', {
-    configurable: false,
-    value: name,
-  })
-
-  Object.getOwnPropertyNames(module.layout)
-  .forEach(function(localName) {
-    localScope[localName] = scope[module.layout[localName]]
-  })
+  var localScope = this.createLocalScope(name, module.layout)
 
   return Promise.resolve(module.start(
     Object.assign({}, module.defaults, config[name]), localScope, exports
@@ -167,9 +152,30 @@ Singular.prototype._start = function(order, ready) {
       scope[name] = exports
     }
 
-    ready.push(name)
-    return self._start(order.slice(1), ready)
+    self.ready.push(name)
+    return self._start(order.slice(1))
   })
+}
+
+Singular.prototype.createLocalScope = function creteLocalScope(name, layout) {
+  var localScope = Object.create(null)
+
+  Object.defineProperty(localScope, 'singular', {
+    configurable: false,
+    value: this,
+  })
+
+  Object.defineProperty(localScope, 'moduleId', {
+    configurable: false,
+    value: name,
+  })
+
+  Object.getOwnPropertyNames(layout)
+  .forEach(function(localName) {
+    localScope[localName] = this.scope[layout[localName]]
+  }, this)
+
+  return localScope
 }
 
 Singular.prototype.stop = function() {
@@ -189,7 +195,7 @@ Singular.prototype.stop = function() {
 
     self._isStopping = true
 
-    Promise.resolve(self._stop(self.order.slice().reverse()))
+    Promise.resolve(self._stop(self.ready.slice().reverse()))
     .then(onStop, function (error) {
       onStop()
       throw error
@@ -205,8 +211,13 @@ Singular.prototype._stop = function(order) {
 
   var self = this
   var name = order[0]
+  var layout = this.modules[name].layout
 
-  return Promise.resolve(this.modules[name].stop(this.config[name], this.scope, this.scope[name]))
+  return Promise.resolve(
+    this.modules[name].stop(
+      this.config[name], this.createLocalScope(name, layout), this.scope[name]
+    )
+  )
   .then(function() {
     delete self.scope[name]
     return self._stop(order.slice(1))
