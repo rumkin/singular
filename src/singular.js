@@ -1,6 +1,7 @@
 var toposort = require('toposort')
 
-var ModuleFactory = require('./module')
+var ModuleFactory = require('./module-factory')
+var createFactory = require('./create-factory')
 
 function Singular(options) {
   this._isRunning = false
@@ -267,6 +268,7 @@ function getNodesFromModules(modules) {
 
 module.exports = Singular
 
+Singular.createFactory = createFactory
 Singular.ModuleFactory = ModuleFactory
 // Added for backward compatibility
 Singular.Module = ModuleFactory

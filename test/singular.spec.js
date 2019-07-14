@@ -298,4 +298,21 @@ module.exports = ({describe, it}) => describe('Singular', () => {
       })
     })
   })
+
+  describe('Singular.createFactory', () => {
+    it('should create functional module factory', () => {
+      const factory = Singular.createFactory({}, () => 'factory works')
+
+      const singular = new Singular({
+        modules: {
+          test: new factory(),
+        },
+      })
+
+      return singular.start()
+      .then((scope) => {
+        assert.equal(scope.test, 'factory works', 'module is initialized')
+      })
+    })
+  })
 })
