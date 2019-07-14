@@ -1,6 +1,6 @@
 var toposort = require('toposort')
 
-var Module = require('./module')
+var ModuleFactory = require('./module')
 
 function Singular(options) {
   this._isRunning = false
@@ -17,7 +17,7 @@ function Singular(options) {
   this.modules = Object.assign({}, modules)
 
   if (this.modules.hasOwnProperty('singular')) {
-    throw new Error('Module name "singular" is reserved')
+    throw new Error('Module factory name "singular" is reserved')
   }
 
   Object.getOwnPropertyNames(this.modules)
@@ -267,4 +267,6 @@ function getNodesFromModules(modules) {
 
 module.exports = Singular
 
-Singular.Module = Module
+Singular.ModuleFactory = ModuleFactory
+// Added for backward compatibility
+Singular.Module = ModuleFactory

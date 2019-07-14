@@ -1,4 +1,4 @@
-function Module(layout) {
+function ModuleFactory (layout) {
   this.deps = Object.assign({}, this.constructor.deps)
   if (! layout) {
     layout = layoutFromDeps(this.deps)
@@ -26,9 +26,9 @@ function layoutFromDeps(deps) {
   return layout
 }
 
-Module.deps = {}
-Module.defaults = {}
-Module.prototype.start = function() {}
-Module.prototype.stop = function() {}
+ModuleFactory.deps = {}
+ModuleFactory.defaults = {}
+ModuleFactory.prototype.start = function() {}
+ModuleFactory.prototype.stop = function() {}
 
-module.exports = Module
+module.exports = ModuleFactory
