@@ -1,7 +1,6 @@
 var toposort = require('toposort')
 
-var ModuleFactory = require('./module-factory')
-var createFactory = require('./create-factory')
+var Factory = require('./factory').Factory
 
 function Singular(options) {
   this._isRunning = false
@@ -23,14 +22,10 @@ function Singular(options) {
 
   Object.getOwnPropertyNames(this.modules)
   .forEach(function(name) {
-    if (name in this.scope === false) {
-      this.scope[name] = {}
-    }
+    this._registerModule(name, modules[name])
   }, this)
 
-  this.order = toposort(getNodesFromModules(this.modules))
-  .slice(1)
-  .reverse()
+  this.order = getInitializationOrder(this.modules)
 }
 
 Object.defineProperty(Singular.prototype, 'isRunning', {
@@ -54,6 +49,10 @@ Singular.prototype.registerModule = function(name, module) {
     throw new Error('Module "' + name + '" already registered')
   }
 
+  this._registerModule(name, module)
+}
+
+Singular.prototype._registerModule = function(name, module) {
   this.modules[name] = module
   this.scope[name] = {}
 }
@@ -235,9 +234,16 @@ Singular.prototype._releaseAwaits = function() {
 }
 
 Singular.prototype.wait = function() {
-  return new Promise((resolve) => {
-    this._resolveOnStop = [...this._resolveOnStop, resolve]
+  var self = this
+  return new Promise(function (resolve) {
+    this._resolveOnStop = self._resolveOnStop.concat(resolve)
   })
+}
+
+function getInitializationOrder(modules) {
+  return toposort(getNodesFromModules(modules))
+  .slice(1)
+  .reverse()
 }
 
 function getNodesFromModules(modules) {
@@ -268,7 +274,4 @@ function getNodesFromModules(modules) {
 
 module.exports = Singular
 
-Singular.createFactory = createFactory
-Singular.ModuleFactory = ModuleFactory
-// Added for backward compatibility
-Singular.Module = ModuleFactory
+Singular.Factory = Factory
