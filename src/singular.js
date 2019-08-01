@@ -50,6 +50,7 @@ Singular.prototype.registerModule = function(name, module) {
   }
 
   this._registerModule(name, module)
+  this.order = getInitializationOrder(this.modules)
 }
 
 Singular.prototype._registerModule = function(name, module) {
@@ -62,6 +63,11 @@ Singular.prototype.unregisterModule = function(name) {
     return
   }
 
+  this._unregisterModule(name)
+  this.order = getInitializationOrder(this.modules)
+}
+
+Singular.prototype._unregisterModule = function(name) {
   delete this.modules[name]
   delete this.scope[name]
 }
