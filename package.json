@@ -1,8 +1,9 @@
 {
   "name": "singular",
-  "version": "3.7.0-beta1",
+  "version": "4.0.0-beta1",
   "description": "Application dependency injection manager",
   "dependencies": {
+    "eventemitter3": "^4.0.0",
     "toposort": "^2.0.2"
   },
   "repository": "rumkin/singular",

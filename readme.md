@@ -35,11 +35,11 @@ const singular = new Singular({
       // User module layout requires mongo `db` which is `mongo` in current app
       db: 'mongo',
     }),
-    transactions: new TransactionsModule({
+    transactions: [TransactionsModule, {
       // Transactions module layout requires sqlite `db` which is `sqlite`
       // in current app
       db: 'sqlite',
-    }),
+    }],
   },
 })
 ```

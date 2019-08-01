@@ -1,11 +1,14 @@
 var toposort = require('toposort')
+var EventEmitter = require('eventemitter3')
 
 var Factory = require('./factory').Factory
 
 function Singular(options) {
-  this._isRunning = false
-  this._isStarting = false
-  this._isStopping = false
+  EventEmitter.call(this)
+
+  this._isRunning = 0
+  this._isStarting = 0
+  this._isStopping = 0
   this._resolveOnStop = []
 
   options = options || {}
@@ -13,6 +16,10 @@ function Singular(options) {
   var modules = options.modules || {}
 
   this.scope = {}
+  this.refCount = {}
+  this.proc = {}
+  this.procId === 0
+  this.totalCount = 0
   this.config = Object.assign({}, config)
   this.modules = Object.assign({}, modules)
 
@@ -28,19 +35,21 @@ function Singular(options) {
   this.order = getInitializationOrder(this.modules)
 }
 
+Object.setPrototypeOf(Singular.prototype, EventEmitter.prototype)
+
 Object.defineProperty(Singular.prototype, 'isRunning', {
   get: function() {
-    return this._isRunning
+    return this._isRunning > 0
   },
 })
 Object.defineProperty(Singular.prototype, 'isStarting', {
   get: function() {
-    return this._isStarting
+    return this._isStarting > 0
   },
 })
 Object.defineProperty(Singular.prototype, 'isStopping', {
   get: function() {
-    return this._isStopping
+    return this._isStopping > 0
   },
 })
 
@@ -56,11 +65,15 @@ Singular.prototype.registerModule = function(name, module) {
 Singular.prototype._registerModule = function(name, module) {
   this.modules[name] = module
   this.scope[name] = {}
+  this.refCount[name] = 0
 }
 
 Singular.prototype.unregisterModule = function(name) {
   if (! this.hasModule(name)) {
     return
+  }
+  else if (this.isModuleRunning(name)) {
+    throw new Error('Module "' + name + '" is running')
   }
 
   this._unregisterModule(name)
@@ -70,10 +83,15 @@ Singular.prototype.unregisterModule = function(name) {
 Singular.prototype._unregisterModule = function(name) {
   delete this.modules[name]
   delete this.scope[name]
+  delete this.refCount[name]
 }
 
 Singular.prototype.hasModule = function(name) {
   return this.modules.hasOwnProperty(name)
+}
+
+Singular.prototype.isModuleRunning = function(name) {
+  return this.refsCount[name] > 0
 }
 
 Singular.prototype.setConfig = function() {
@@ -92,55 +110,90 @@ Singular.prototype.setConfig = function() {
   return this
 }
 
-Singular.prototype.start = function() {
+Singular.prototype.start = function(procId, refs) {
   var self = this
+  if (procId in this.proc) {
+    throw new Error('Already started "' + procId + '"')
+  }
+
+  this.proc[procId] = {
+    id: procId,
+    deps: refs,
+    ready: [],
+    awaits: [],
+  }
+
+  var proc = this.proc[procId]
+
   return new Promise(function(resolve, reject) {
-    if (self.isRunning || self.isStarting) {
-      reject(new Error('Already started'))
-      return
+    var modules
+    if (refs) {
+      refs.forEach(function (ref) {
+        if (! self.hasModule(ref)) {
+          throw new Error('Required module "' + ref + '" is not defined')
+        }
+      })
+      modules = getRequiredModules(self.modules, refs.slice())
+    }
+    else {
+      modules = self.modules
     }
 
-    self.ready = []
+    var order = getInitializationOrder(modules)
 
-    Promise.resolve(self._start(self.order.slice()))
+    self.isStarting += 1
+
+    Promise.resolve(self._start(order, proc.ready))
+    .finally(function() {
+      self.isStarting -= 1
+    })
     .then(function() {
-      self._isRunning = true
       return Object.assign({}, self.scope)
     }, function(error) {
-      self._isStarting = false
-
-      function onStop() {
-        self._isRunning = false
-        self._isStopping = false
-        self._releaseAwaits()
-      }
-
-      return Promise.resolve(self._stop(self.ready.reverse()))
+      return Promise.resolve(self._stop(proc.ready.slice().reverse()))
       .then(function() {
-        onStop()
         throw error
       }, function (stopError) {
-        onStop()
         throw stopError
       })
+    })
+    .then(function () {
+      var scope
+      if (refs) {
+        scope = refs.reduce(function(items, name) {
+          items[name] = self.scope[name]
+          return items
+        }, {})
+      }
+      else {
+        scope = self.scope
+      }
+      proc.scope = scope
+
+      self.emit('started', proc)
+
+      return proc
     })
     .then(resolve, reject)
   })
 }
 
-Singular.prototype._start = function(order) {
+Singular.prototype._start = function(order, ready) {
   if (! order.length) {
-    this._isStarting = false
     return
   }
-
-  this._isStarting = true
 
   var self = this
   var name = order[0]
 
   var scope = this.scope
   var config = this.config
+
+  if (this.refCount[name] > 0) {
+    ready.push(name)
+    this.refCount[name] += 1
+    return this._start(order.slice(1), ready)
+  }
 
   var module = this.modules[name]
 
@@ -158,8 +211,9 @@ Singular.prototype._start = function(order) {
       scope[name] = exports
     }
 
-    self.ready.push(name)
-    return self._start(order.slice(1))
+    ready.push(name)
+    self.refCount[name] += 1
+    return self._start(order.slice(1), ready)
   })
 }
 
@@ -184,27 +238,36 @@ Singular.prototype.createLocalScope = function creteLocalScope(name, layout) {
   return localScope
 }
 
-Singular.prototype.stop = function() {
+Singular.prototype.stop = function(procId) {
   var self = this
+  if (procId in this.proc === false) {
+    throw new Error('Procedure "' + procId + '" not found')
+  }
 
+  var refs = this.proc[procId].refs
   return new Promise(function(resolve, reject) {
-    if (! self.isRunning || self.isStopping) {
-      resolve()
-      return
+    var modules
+    if (refs) {
+      modules = getRequiredModules(self.modules, refs.filter(
+        function (name) {
+          return self.refCount[name] > 0
+        }
+      ))
+    }
+    else {
+      modules = self.modules
     }
 
-    function onStop() {
-      self._isRunning = false
-      self._isStopping = false
-      self._releaseAwaits()
-    }
+    var order = getDepsOrder(modules)
 
-    self._isStopping = true
+    self._isStopping += 1
 
-    Promise.resolve(self._stop(self.ready.slice().reverse()))
-    .then(onStop, function (error) {
-      onStop()
-      throw error
+    Promise.resolve(self._stop(order))
+    .finally(function() {
+      self._isStopping -= 1
+      var proc = self.proc[procId]
+      delete self.proc[procId]
+      self.emit('stopped', proc)
     })
     .then(resolve, reject)
   })
@@ -219,36 +282,73 @@ Singular.prototype._stop = function(order) {
   var name = order[0]
   var layout = this.modules[name].layout
 
+  if (this.refCount[name] > 1) {
+    this.refCount[name] -= 1
+    return Promise.resolve()
+  }
+
   return Promise.resolve(
     this.modules[name].stop(
       this.config[name], this.createLocalScope(name, layout), this.scope[name]
     )
   )
   .then(function() {
+    self.refCount[name] -= 1
     delete self.scope[name]
     return self._stop(order.slice(1))
   })
 }
 
-Singular.prototype._releaseAwaits = function() {
-  var resolveOnStop = this._resolveOnStop
-  this._resolveOnStop = []
-
-  resolveOnStop.forEach(function(resolve) {
-    resolve()
+Singular.prototype.run = function(refs, fn) {
+  var self = this
+  self._isRunning += 1
+  var id = ++this.procId
+  return this.start(id, refs)
+  .then(function (proc) {
+    return fn(proc.scope)
+  })
+  .finally(function() {
+    return self.stop(id)
+  })
+  .finally(function() {
+    self._isRunning -= 1
   })
 }
 
-Singular.prototype.wait = function() {
-  var self = this
-  return new Promise(function (resolve) {
-    this._resolveOnStop = self._resolveOnStop.concat(resolve)
-  })
+function getDeps(modules, list) {
+  var resolved = []
+  var index = {}
+
+  while (list.length) {
+    var item = list.shift()
+    var deps = Object.values(modules[item].layout)
+    deps.forEach(function (dep) {
+      if (dep in index) {
+        return
+      }
+      list.push(dep)
+    })
+    index[item] = true
+    resolved.push(item)
+  }
+  return resolved
+}
+
+function getRequiredModules(modules, list) {
+  var deps = getDeps(modules, list)
+  return deps.reduce(function(result, name) {
+    result[name] = modules[name]
+    return result
+  }, {})
+}
+
+function getDepsOrder(modules) {
+  return toposort(getNodesFromModules(modules))
+  .slice(1)
 }
 
 function getInitializationOrder(modules) {
-  return toposort(getNodesFromModules(modules))
-  .slice(1)
+  return getDepsOrder(modules)
   .reverse()
 }
 

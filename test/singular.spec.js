@@ -66,8 +66,8 @@ module.exports = ({describe, it}) => describe('Singular', () => {
         },
       })
 
-      return singular.start()
-      .then((scope) => {
+      return singular.start(1)
+      .then(({scope}) => {
         const {a, b, c} = scope
 
         assert.equal(a, 1, 'a is 1')
@@ -92,8 +92,8 @@ module.exports = ({describe, it}) => describe('Singular', () => {
         },
       })
 
-      return singular.start()
-      .then(({service: {value}}) => value)
+      return singular.start(1)
+      .then(({scope: {service: {value}}}) => value)
       .then((result) => {
         assert.equal(result, 1, 'Value passed to config')
       })
@@ -120,8 +120,8 @@ module.exports = ({describe, it}) => describe('Singular', () => {
         },
       })
 
-      return singular.start()
-      .then(({service: {value}}) => value)
+      return singular.start(1)
+      .then(({scope: {service: {value}}}) => value)
       .then((result) => {
         assert.equal(result, 1, 'Value passed to config')
       })
@@ -165,8 +165,8 @@ module.exports = ({describe, it}) => describe('Singular', () => {
         },
       })
 
-      return singular.start()
-      .then((scope) => {
+      return singular.start(1)
+      .then(({scope}) => {
         const {a, b} = scope
         assert.equal(a.sum(), 2, 'a.sum() is 2')
         assert.equal(b.sum(), 2, 'b.sum() is 2')
@@ -202,6 +202,44 @@ module.exports = ({describe, it}) => describe('Singular', () => {
 
       assert.ok(caught !== void 0, 'Error caught')
       assert.ok(/Cyclic/.test(caught.message), 'Cyclic dependency error')
+    })
+
+    it('Should start only required deps', () => {
+      const singular = new Singular({
+        modules: {
+          a: createModule({
+            layout: {b: 'b'},
+            deps: {b: true},
+            start: (cfg, {b}) => 'a' + b,
+          }),
+          b: createModule({value: 'b'}),
+          c: createModule({value: 'c'}),
+        },
+      })
+
+      return singular.start(1, ['a'])
+      .then(({scope: {a}}) => {
+        assert.equal(a, 'ab', 'b has been required')
+        assert.equal(singular.refCount.a, 1, 'a ref count is 1')
+        assert.equal(singular.refCount.b, 1, 'b ref count is 1')
+        assert.equal(singular.refCount.c, 0, 'c ref count is 0')
+      })
+    })
+
+    it('Should emit started event', () => {
+      const singular = new Singular({
+        modules: {a: createModule()},
+      })
+      let beenStarted = false
+
+      singular.on('started', () => {
+        beenStarted = true
+      })
+
+      return singular.start(1)
+      .then(() => {
+        assert.ok(beenStarted, 'Started is true')
+      })
     })
 
     it('Should call Service#stop() on failure', () => {
@@ -243,7 +281,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
     })
   })
 
-  describe('#stop', () => {
+  describe('#stop()', () => {
     it('Should call Service#stop() in proper order', () => {
       let count = 0
       let aStopCalled = 0
@@ -267,34 +305,66 @@ module.exports = ({describe, it}) => describe('Singular', () => {
         },
       })
 
-      return singular.start()
-      .then(() => singular.stop())
+      return singular.start(1)
+      .then(() => singular.stop(1))
       .then(() => {
         assert.equal(aStopCalled, 2, 'A stopped last')
         assert.equal(bStopCalled, 1, 'B stopped first')
       })
     })
 
-    it('Should release waiting', () => {
-      const singular = new Singular()
-      let count = 0
-      let stoppedAt = 0
-      let releasedAt = 0
+    it('Should emit stopped event', () => {
+      const singular = new Singular({
+        modules: {a: createModule()},
+      })
+      let beenStopped = false
 
-      return Promise.all([
-        singular.wait()
-        .then(() => {
-          releasedAt = ++count
-        }),
-        singular.start()
-        .then(() => {
-          stoppedAt = ++count
-          return singular.stop()
-        }),
-      ])
+      singular.on('stopped', () => {
+        beenStopped = true
+      })
+
+      return singular.start(1)
+      .then(() => singular.stop(1))
       .then(() => {
-        assert.equal(stoppedAt, 1, 'stopped before')
-        assert.equal(releasedAt, 2, 'released after')
+        assert.ok(beenStopped, 'Stopped is true')
+      })
+    })
+  })
+
+  describe('#run()', () => {
+    it('should start modules', () => {
+      let beenStarted = false
+      const singular = new Singular({
+        modules: {
+          a: createModule({
+            start() {
+              beenStarted = true
+            },
+          }),
+        },
+      })
+
+      return singular.run(['a'], () => {})
+      .then(() => {
+        assert.ok(beenStarted, 'a been started')
+      })
+    })
+
+    it('should stop modules', () => {
+      let beenStopped = false
+      const singular = new Singular({
+        modules: {
+          a: createModule({
+            stop() {
+              beenStopped = true
+            },
+          }),
+        },
+      })
+
+      return singular.run(['a'], () => {})
+      .then(() => {
+        assert.ok(beenStopped, 'a been started')
       })
     })
   })
@@ -311,8 +381,8 @@ module.exports = ({describe, it}) => describe('Singular', () => {
         },
       })
 
-      return singular.start()
-      .then((scope) => {
+      return singular.start(1)
+      .then(({scope}) => {
         assert.equal(scope.test, 'factory works', 'module is initialized')
       })
     })
