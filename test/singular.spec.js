@@ -1,7 +1,7 @@
 const assert = require('assert')
 const Singular = require('../')
 
-function createModule({layout = {}, deps, defaults = {}, start, stop = () => {}, value} = {}) {
+function createUnit({layout = {}, deps, defaults = {}, start, stop = () => {}, value} = {}) {
   if (! start) {
     start = () => value
   }
@@ -45,9 +45,9 @@ module.exports = ({describe, it}) => describe('Singular', () => {
             value: 3,
           },
         },
-        modules: {
-          a: createModule({value: 1}),
-          b: createModule({
+        units: {
+          a: createUnit({value: 1}),
+          b: createUnit({
             layout: {
               x: 'a',
             },
@@ -55,7 +55,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
               return x + value
             },
           }),
-          c: createModule({
+          c: createUnit({
             layout: {
               x: 'b',
             },
@@ -77,7 +77,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
     })
 
     it('Should use defaults', () => {
-      const service = createModule({
+      const service = createUnit({
         defaults: {
           a: 1,
         },
@@ -87,7 +87,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
       })
 
       const singular = new Singular({
-        modules: {
+        units: {
           service,
         },
       })
@@ -100,7 +100,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
     })
 
     it('Should overwrite defaults', () => {
-      const service = createModule({
+      const service = createUnit({
         defaults: {
           a: 0,
         },
@@ -115,7 +115,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
             a: 1,
           },
         },
-        modules: {
+        units: {
           service,
         },
       })
@@ -128,7 +128,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
     })
 
     it('Should resolve cycle dependencies when weak flags set', () => {
-      const serviceA = createModule({
+      const serviceA = createUnit({
         layout: {
           dep: 'b',
         },
@@ -143,7 +143,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
         },
       })
 
-      const serviceB = createModule({
+      const serviceB = createUnit({
         layout: {
           dep: 'a',
         },
@@ -159,7 +159,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
       })
 
       const singular = new Singular({
-        modules: {
+        units: {
           a: serviceA,
           b: serviceB,
         },
@@ -176,13 +176,13 @@ module.exports = ({describe, it}) => describe('Singular', () => {
     it('Should fail on cycle dependencies', () => {
       let caught
 
-      const serviceA = createModule({
+      const serviceA = createUnit({
         layout: {
           dep: 'b',
         },
       })
 
-      const serviceB = createModule({
+      const serviceB = createUnit({
         layout: {
           dep: 'a',
         },
@@ -190,7 +190,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
 
       try {
         new Singular({
-          modules: {
+          units: {
             a: serviceA,
             b: serviceB,
           },
@@ -206,14 +206,14 @@ module.exports = ({describe, it}) => describe('Singular', () => {
 
     it('Should start only required deps', () => {
       const singular = new Singular({
-        modules: {
-          a: createModule({
+        units: {
+          a: createUnit({
             layout: {b: 'b'},
             deps: {b: true},
             start: (cfg, {b}) => 'a' + b,
           }),
-          b: createModule({value: 'b'}),
-          c: createModule({value: 'c'}),
+          b: createUnit({value: 'b'}),
+          c: createUnit({value: 'c'}),
         },
       })
 
@@ -228,7 +228,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
 
     it('Should emit started event', () => {
       const singular = new Singular({
-        modules: {a: createModule()},
+        units: {a: createUnit()},
       })
       let beenStarted = false
 
@@ -252,13 +252,13 @@ module.exports = ({describe, it}) => describe('Singular', () => {
             value: 2,
           },
         },
-        modules: {
-          a: createModule({
+        units: {
+          a: createUnit({
             stop() {
               stopCalled = true
             },
           }),
-          b: createModule({
+          b: createUnit({
             layout: {
               x: 'a',
             },
@@ -288,17 +288,19 @@ module.exports = ({describe, it}) => describe('Singular', () => {
       let bStopCalled = 0
 
       const singular = new Singular({
-        modules: {
-          a: createModule({
+        units: {
+          a: createUnit({
             stop() {
+              console.log('A stopped')
               aStopCalled = ++count
             },
           }),
-          b: createModule({
+          b: createUnit({
             layout: {
               x: 'a',
             },
             stop() {
+              console.log('B stopped')
               bStopCalled = ++count
             },
           }),
@@ -308,6 +310,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
       return singular.start(1)
       .then(() => singular.stop(1))
       .then(() => {
+        assert.ok(count > 0, 'Stop called')
         assert.equal(aStopCalled, 2, 'A stopped last')
         assert.equal(bStopCalled, 1, 'B stopped first')
       })
@@ -315,11 +318,11 @@ module.exports = ({describe, it}) => describe('Singular', () => {
 
     it('Should emit stopped event', () => {
       const singular = new Singular({
-        modules: {a: createModule()},
+        units: {a: createUnit()},
       })
       let beenStopped = false
 
-      singular.on('stopped', () => {
+      singular.on('thread:stopped', () => {
         beenStopped = true
       })
 
@@ -332,11 +335,11 @@ module.exports = ({describe, it}) => describe('Singular', () => {
   })
 
   describe('#run()', () => {
-    it('should start modules', () => {
+    it('should start units', () => {
       let beenStarted = false
       const singular = new Singular({
-        modules: {
-          a: createModule({
+        units: {
+          a: createUnit({
             start() {
               beenStarted = true
             },
@@ -350,11 +353,11 @@ module.exports = ({describe, it}) => describe('Singular', () => {
       })
     })
 
-    it('should stop modules', () => {
+    it('should stop units', () => {
       let beenStopped = false
       const singular = new Singular({
-        modules: {
-          a: createModule({
+        units: {
+          a: createUnit({
             stop() {
               beenStopped = true
             },
@@ -370,20 +373,20 @@ module.exports = ({describe, it}) => describe('Singular', () => {
   })
 
   describe('Singular.Factory.from()', () => {
-    it('should create functional module factory', () => {
+    it('should create functional unit factory', () => {
       const factory = Singular.Factory.from({
         start: () => 'factory works',
       })
 
       const singular = new Singular({
-        modules: {
+        units: {
           test: new factory(),
         },
       })
 
       return singular.start(1)
       .then(({scope}) => {
-        assert.equal(scope.test, 'factory works', 'module is initialized')
+        assert.equal(scope.test, 'factory works', 'unit is initialized')
       })
     })
   })
