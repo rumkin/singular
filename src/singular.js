@@ -12,16 +12,14 @@ function Singular(options) {
   this._resolveOnStop = []
 
   options = options || {}
-  var config = options.config || {}
-  var units = options.units || {}
+  this.config = Object.assign({}, options.config)
+  this.units = Object.assign({}, options.units)
 
   this.scope = {}
   this.refCount = {}
   this.thread = {}
   this.threadId === 0
   this.totalCount = 0
-  this.config = Object.assign({}, config)
-  this.units = Object.assign({}, units)
 
   if (this.units.hasOwnProperty('singular')) {
     throw new Error('Unit factory name "singular" is reserved')
@@ -29,7 +27,7 @@ function Singular(options) {
 
   Object.getOwnPropertyNames(this.units)
   .forEach(function(name) {
-    this._registerUnit(name, units[name])
+    this._registerUnit(name, this.units[name], this.config[name])
   }, this)
 
   this.order = getInitializationOrder(this.units)
@@ -53,18 +51,19 @@ Object.defineProperty(Singular.prototype, 'isStopping', {
   },
 })
 
-Singular.prototype.registerUnit = function(name, unit) {
+Singular.prototype.registerUnit = function(name, unit, config) {
   if (this.hasUnit(name)) {
     throw new Error('Unit "' + name + '" already registered')
   }
 
   this._registerUnit(name, unit)
-  this.order = getInitializationOrder(this.units)
+  this.order = getInitializationOrder(this.units, config)
 }
 
-Singular.prototype._registerUnit = function(name, unit) {
+Singular.prototype._registerUnit = function(name, unit, config) {
   this.units[name] = unit
   this.scope[name] = {}
+  this.config[name] = Object.assign({}, unit.defaults, config)
   this.refCount[name] = 0
 }
 
@@ -83,6 +82,7 @@ Singular.prototype.unregisterUnit = function(name) {
 Singular.prototype._unregisterUnit = function(name) {
   delete this.units[name]
   delete this.scope[name]
+  delete this.config[name]
   delete this.refCount[name]
 }
 
@@ -244,7 +244,7 @@ Singular.prototype._stop = function(order) {
 
   if (this.refCount[name] > 1) {
     this.refCount[name] -= 1
-    return Promise.resolve()
+    return this._stop(order.slice(1))
   }
 
   return Promise.resolve(
