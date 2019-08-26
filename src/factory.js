@@ -54,6 +54,14 @@ function assembleFactory(start, stop) {
   return SimpleFactory
 }
 
+function createUnit(value) {
+  var factory = assembleFactory(function() {
+    return value
+  })
+
+  return new factory()
+}
+
 Factory.from = function from(source) {
   return Object.assign(
     assembleFactory(source.start, source.stop),
@@ -66,3 +74,4 @@ Factory.from = function from(source) {
 
 exports.Factory = Factory
 exports.assembleFactory = assembleFactory
+exports.createUnit = createUnit

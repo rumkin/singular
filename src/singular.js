@@ -2,6 +2,7 @@ var toposort = require('toposort')
 var EventEmitter = require('eventemitter3')
 
 var Factory = require('./factory').Factory
+var createUnit = require('./factory').createUnit
 
 function Singular(options) {
   EventEmitter.call(this)
@@ -12,10 +13,14 @@ function Singular(options) {
   this._resolveOnStop = []
 
   options = options || {}
-  this.config = Object.assign({}, options.config)
-  this.units = Object.assign({}, options.units)
-
+  this.config = {}
+  this.units = {}
   this.scope = {}
+
+  var config = Object.assign({}, options.config)
+  var units = Object.assign({}, options.units)
+  var scope = Object.assign({}, options.scope)
+
   this.refCount = {}
   this.thread = {}
   this.threadId === 0
@@ -25,9 +30,17 @@ function Singular(options) {
     throw new Error('Unit factory name "singular" is reserved')
   }
 
-  Object.getOwnPropertyNames(this.units)
+  Object.getOwnPropertyNames(scope)
   .forEach(function(name) {
-    this._registerUnit(name, this.units[name], this.config[name])
+    var value = scope[name]
+    var unit = createUnit(value)
+
+    this._registerUnit(name, unit, config[name])
+  }, this)
+
+  Object.getOwnPropertyNames(units)
+  .forEach(function(name) {
+    this._registerUnit(name, units[name], config[name])
   }, this)
 
   this.order = getInitializationOrder(this.units)
@@ -364,10 +377,6 @@ function getNodesFromUnits(units) {
   return nodes
 }
 
-module.exports = Singular
-
-Singular.Factory = Factory
-
 function Thread(singular, id, deps) {
   this.singular = singular
   this.id = id
@@ -380,3 +389,7 @@ function Thread(singular, id, deps) {
   this.ready = []
   this.scope = {}
 }
+
+module.exports = Singular
+
+Singular.Factory = Factory

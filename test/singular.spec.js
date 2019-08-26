@@ -204,6 +204,34 @@ module.exports = ({describe, it}) => describe('Singular', () => {
       assert.ok(/Cyclic/.test(caught.message), 'Cyclic dependency error')
     })
 
+    it('Should use predefined units', () => {
+      const serviceA = createUnit({
+        deps: {
+          b: true,
+        },
+        layout: {
+          b: 'b',
+        },
+        start(cfg, scope) {
+          return scope.b + 1
+        },
+      })
+
+      const singular = new Singular({
+        scope: {
+          b: 1,
+        },
+        units: {
+          a: serviceA,
+        },
+      })
+
+      return singular.start(1, ['a'])
+      .then((thread) => {
+        assert.equal(thread.scope.a, 2, 'a is 2')
+      })
+    })
+
     it('Should start only required deps', () => {
       const singular = new Singular({
         units: {
