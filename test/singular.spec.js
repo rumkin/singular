@@ -1,6 +1,8 @@
 const assert = require('assert')
 const Singular = require('../')
 
+const {Factory} = Singular
+
 function createUnit({layout = {}, deps, defaults = {}, start, stop = () => {}, value} = {}) {
   if (! start) {
     start = () => value
@@ -400,21 +402,57 @@ module.exports = ({describe, it}) => describe('Singular', () => {
     })
   })
 
-  describe('Singular.Factory.from()', () => {
-    it('should create functional unit factory', () => {
-      const factory = Singular.Factory.from({
-        start: () => 'factory works',
+  describe('Singular.Factory', function() {
+    describe('Factory#Factory()', () => {
+      it('Should complete layout', () => {
+        function TestFactory() {
+          Factory.apply(this, arguments)
+        }
+
+        TestFactory.deps = {
+          a: true,
+        }
+
+        Object.setPrototypeOf(TestFactory.prototype, Factory.prototype)
+
+        const unit = new TestFactory()
+
+        assert.equal(unit.layout.a, 'a', 'layout.a is a')
       })
 
-      const singular = new Singular({
-        units: {
-          test: new factory(),
-        },
-      })
+      it('Should substitute names to layout', () => {
+        function TestFactory() {
+          Factory.apply(this, arguments)
+        }
 
-      return singular.start(1)
-      .then(({scope}) => {
-        assert.equal(scope.test, 'factory works', 'unit is initialized')
+        TestFactory.deps = {
+          a: true,
+        }
+
+        Object.setPrototypeOf(TestFactory.prototype, Factory.prototype)
+
+        const unit = new TestFactory({a: true})
+
+        assert.equal(unit.layout.a, 'a', 'layout.a is a')
+      })
+    })
+
+    describe('from()', () => {
+      it('should create functional unit factory', () => {
+        const factory = Factory.from({
+          start: () => 'factory works',
+        })
+
+        const singular = new Singular({
+          units: {
+            test: new factory(),
+          },
+        })
+
+        return singular.start(1)
+        .then(({scope}) => {
+          assert.equal(scope.test, 'factory works', 'unit is initialized')
+        })
       })
     })
   })

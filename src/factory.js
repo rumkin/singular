@@ -1,14 +1,27 @@
 function Factory (layout) {
   this.deps = Object.assign({}, this.constructor.deps)
+  layout = Object.assign({}, layout)
+
   if (! layout) {
     layout = layoutFromDeps(this.deps)
   }
   else {
     var deps = this.deps
+
     Object.getOwnPropertyNames(layout)
     .forEach(function(name) {
       if (! deps.hasOwnProperty(name)) {
         throw new Error('Unknown dependency in layout "' + name + '"')
+      }
+      else if (layout[name] === true) {
+        layout[name] = name
+      }
+    })
+
+    Object.getOwnPropertyNames(deps)
+    .forEach(function(name) {
+      if (! layout.hasOwnProperty(name)) {
+        layout[name] = name
       }
     })
   }
