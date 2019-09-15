@@ -123,6 +123,10 @@ Singular.prototype.setConfig = function() {
   return this
 }
 
+Singular.prototype.get = function(name) {
+  return this.scope[name]
+}
+
 Singular.prototype.start = function(threadId, deps) {
   var self = this
 
@@ -158,6 +162,7 @@ Singular.prototype.start = function(threadId, deps) {
     }
 
     var order = getInitializationOrder(units)
+    thread.order = order.slice()
 
     self.isStarting += 1
 
@@ -201,9 +206,9 @@ Singular.prototype._start = function(order, thread) {
   var unit = this.units[name]
 
   var exports = this.scope[name]
-  var localScope = this.createLocalScope(name, unit.layout)
+  var localScope = this.createLocalScope(name)
 
-  return Promise.resolve(unit.start(
+  return Promise.resolve(unit.startUnit(
     Object.assign({}, unit.defaults, config[name]), localScope, exports
   ))
   .then(function (result) {
@@ -229,9 +234,9 @@ Singular.prototype.stop = function(threadId) {
   }
 
   var thread = this.thread[threadId]
+  var order = thread.order.slice().reverse()
+
   return new Promise(function(resolve, reject) {
-    var units = getRequiredUnits(self.units, thread.deps)
-    var order = getShutdownOrder(units)
 
     self._isStopping += 1
 
@@ -253,7 +258,6 @@ Singular.prototype._stop = function(order) {
 
   var self = this
   var name = order[0]
-  var layout = this.units[name].layout
 
   if (this.refCount[name] > 1) {
     this.refCount[name] -= 1
@@ -261,8 +265,8 @@ Singular.prototype._stop = function(order) {
   }
 
   return Promise.resolve(
-    this.units[name].stop(
-      this.config[name], this.createLocalScope(name, layout), this.scope[name]
+    this.units[name].stopUnit(
+      this.config[name], this.createLocalScope(name), this.scope[name]
     )
   )
   .then(function() {
@@ -289,7 +293,7 @@ Singular.prototype.run = function(deps, fn) {
   })
 }
 
-Singular.prototype.createLocalScope = function creteLocalScope(name, layout) {
+Singular.prototype.createLocalScope = function creteLocalScope(name) {
   var localScope = Object.create(null)
 
   Object.defineProperty(localScope, 'singular', {
@@ -302,12 +306,33 @@ Singular.prototype.createLocalScope = function creteLocalScope(name, layout) {
     value: name,
   })
 
-  Object.getOwnPropertyNames(layout)
-  .forEach(function(localName) {
-    localScope[localName] = this.scope[layout[localName]]
+  var unit = this.units[name]
+  var deps = unit.deps
+  var layout = unit.layout
+
+  Object.getOwnPropertyNames(deps)
+  .forEach(function(depName) {
+    var localName = layout[depName]
+
+    if (deps[depName] === false) {
+      return
+    }
+
+    if (! this.hasUnit(localName)) {
+      throw new Error('Unit "' + depName + '" not found')
+    }
+
+    localScope[depName] = this.scope[localName]
   }, this)
 
   return localScope
+}
+
+function getUnitDeps(unit) {
+  return Object.keys(unit.deps)
+  .filter(function(dep) {
+    return unit.deps[dep] === true
+  })
 }
 
 function getDeps(units, list) {
@@ -316,13 +341,19 @@ function getDeps(units, list) {
 
   while (list.length) {
     var item = list.shift()
-    var deps = Object.values(units[item].layout)
-    deps.forEach(function (dep) {
+    var unit = units[item]
+
+    getUnitDeps(unit)
+    .map(function(dep) {
+      return unit.layout[dep]
+    })
+    .forEach(function (dep) {
       if (dep in index) {
         return
       }
       list.push(dep)
     })
+
     index[item] = true
     resolved.push(item)
   }
@@ -342,10 +373,6 @@ function getDepsOrder(units) {
   .slice(1)
 }
 
-function getShutdownOrder(units) {
-  return getDepsOrder(units)
-}
-
 function getInitializationOrder(units) {
   return getDepsOrder(units)
   .reverse()
@@ -359,17 +386,17 @@ function getNodesFromUnits(units) {
     var unit = units[name]
     nodes.push(['', name])
 
-    Object.getOwnPropertyNames(unit.layout)
-    .forEach(function(localName) {
-      var dependency = unit.layout[localName]
-      if (! units.hasOwnProperty(dependency)) {
+    Object.getOwnPropertyNames(unit.deps)
+    .forEach(function(dep) {
+      var scopeName = unit.layout[dep]
+      if (! units.hasOwnProperty(scopeName)) {
         throw new Error(
-          'Unknown dependency "'+ dependency + '" in unit "' + name + '"'
+          'Unknown dependency "'+ scopeName + '" in unit "' + name + '"'
         )
       }
 
-      if (unit.deps[localName]) {
-        nodes.push([name, dependency])
+      if (unit.deps[dep]) {
+        nodes.push([name, scopeName])
       }
     })
   })
@@ -387,6 +414,7 @@ function Thread(singular, id, deps) {
   })
   Object.freeze(deps)
   this.ready = []
+  this.order = []
   this.scope = {}
 }
 

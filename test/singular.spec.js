@@ -22,11 +22,11 @@ function createUnit({layout = {}, deps, defaults = {}, start, stop = () => {}, v
     }
 
     start(...args) {
-      return start(...args)
+      return start.call(this, ...args)
     }
 
     stop(...args) {
-      return stop(...args)
+      return stop.call(this, ...args)
     }
   }
 
@@ -132,46 +132,48 @@ module.exports = ({describe, it}) => describe('Singular', () => {
     it('Should resolve cycle dependencies when weak flags set', () => {
       const serviceA = createUnit({
         layout: {
-          dep: 'b',
+          dep: 'bX',
         },
         deps: {
           dep: false,
         },
-        start(config, {dep}, exports) {
+        start(config, {singular}, exports) {
+          const {layout} = this
           exports.value = 1
-          exports.sum = function () {
-            return this.value + dep.value
+          exports.sum = function() {
+            return this.value + singular.get(layout.dep).value
           }
         },
       })
 
       const serviceB = createUnit({
         layout: {
-          dep: 'a',
+          dep: 'aX',
         },
         deps: {
           dep: false,
         },
-        start(config, {dep}, exports) {
+        start(config, {singular}, exports) {
+          const {layout} = this
           exports.value = 1
           exports.sum = function () {
-            return this.value + dep.value
+            return this.value + singular.get(layout.dep).value
           }
         },
       })
 
       const singular = new Singular({
         units: {
-          a: serviceA,
-          b: serviceB,
+          aX: serviceA,
+          bX: serviceB,
         },
       })
 
       return singular.start(1)
       .then(({scope}) => {
-        const {a, b} = scope
-        assert.equal(a.sum(), 2, 'a.sum() is 2')
-        assert.equal(b.sum(), 2, 'b.sum() is 2')
+        const {aX, bX} = scope
+        assert.equal(aX.sum(), 2, 'a.sum() is 2')
+        assert.equal(bX.sum(), 2, 'b.sum() is 2')
       })
     })
 
@@ -402,6 +404,34 @@ module.exports = ({describe, it}) => describe('Singular', () => {
     })
   })
 
+  describe('#get()', () => {
+    it('should return instance', () => {
+      const singular = new Singular({
+        units: {
+          b: createUnit({
+            start() {
+              return true
+            },
+          }),
+          a: createUnit({
+            deps: {b: true},
+            layout: {b: true},
+            start(config, scope) {
+              return scope.singular.get('b')
+            },
+          }),
+        },
+      })
+
+      return singular.run(['a'], ({a}) => {
+        return a
+      })
+      .then((result) => {
+        assert.ok(result, 'a is `true`')
+      })
+    })
+  })
+
   describe('Singular.Factory', function() {
     describe('Factory#Factory()', () => {
       it('Should complete layout', () => {
@@ -437,7 +467,7 @@ module.exports = ({describe, it}) => describe('Singular', () => {
       })
     })
 
-    describe('from()', () => {
+    describe('Factory.from()', () => {
       it('should create functional unit factory', () => {
         const factory = Factory.from({
           start: () => 'factory works',
@@ -453,6 +483,12 @@ module.exports = ({describe, it}) => describe('Singular', () => {
         .then(({scope}) => {
           assert.equal(scope.test, 'factory works', 'unit is initialized')
         })
+      })
+    })
+
+    describe('Factory#get()', () => {
+      it('Should get unit instance from singular', () => {
+
       })
     })
   })

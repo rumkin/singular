@@ -41,8 +41,24 @@ function layoutFromDeps(deps) {
 
 Factory.deps = {}
 Factory.defaults = {}
-Factory.prototype.start = function() {}
+Factory.prototype.start = function(config, scope, instance) {
+  return instance
+}
 Factory.prototype.stop = function() {}
+Factory.prototype.startUnit = function(config, scope, instance) {
+  this.scope = scope
+  return Promise.resolve(this.start(config, scope, instance))
+}
+Factory.prototype.stopUnit = function(config, scope, instance) {
+  var self = this
+  return Promise.resolve(this.stop(config, scope, instance))
+  .finally(function() {
+    self.scope = null
+  })
+}
+Factory.prototype.get = function(name) {
+  return this.scope.singular.get(this.layout[name])
+}
 
 function assembleFactory(start, stop) {
   if (typeof start !== 'function') {

@@ -1,6 +1,6 @@
 {
   "name": "singular",
-  "version": "4.2.1-beta1",
+  "version": "4.3.0-b0",
   "description": "Application dependency injection manager",
   "dependencies": {
     "eventemitter3": "^4.0.0",

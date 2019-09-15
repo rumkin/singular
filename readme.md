@@ -1,7 +1,7 @@
-Singular is dependency manager for modular applications. Its' modules are
+Singular is dependency manager for modular applications. Its' units are
 CommonJS-alike classes.
 
-Singular can load modules in runtime for example WASM modules or mock any module
+Singular can load units in runtime for example WASM units or mock any module
 in test environment.
 
 ## Installation
@@ -14,11 +14,11 @@ in test environment.
 * Inject using unpkg.com:
 
   ```html
-  <script src="https://unpkg.com/singular@3/dist/singular.js"></script>
-  <script src="https://unpkg.com/singular@3/dist/singular.min.js"></script>
+  <script src="https://unpkg.com/singular@4/dist/singular.js"></script>
+  <script src="https://unpkg.com/singular@4/dist/singular.min.js"></script>
   ```
   > ⚠️ Remember about security! Add [subresource integrity](https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity) (SRI) checksum
-  > from [checksum.txt](https://unpkg.com/singular@3/dist/checksum.txt).
+  > from [checksum.txt](https://unpkg.com/singular@4/dist/checksum.txt).
 
 ## Example
 
@@ -28,14 +28,14 @@ Singular is made for simple configuration and initialization:
 import Singular from 'singular'
 
 const singular = new Singular({
-  modules: {
-    mongo: new MongoModule(),
-    sqlite: new SqliteModule(),
-    user: new UserModule({
+  units: {
+    mongo: new MongoFactory(),
+    sqlite: new SqliteFactory(),
+    user: new UserFactory({
       // User module layout requires mongo `db` which is `mongo` in current app
       db: 'mongo',
     }),
-    transactions: [TransactionsModule, {
+    transactions: [TransactionsFactory, {
       // Transactions module layout requires sqlite `db` which is `sqlite`
       // in current app
       db: 'sqlite',
@@ -70,22 +70,22 @@ const singular = new Singular({
 })
 ```
 
-Inject dependencies with `start` method.
+Inject dependencies with `run` method.
 
 ```javascript
 // Inject logger and log something
-singular.start()
+singular.run(['mongo', 'sqlite'])
 .then(({ mongo, sqlite }) => {
 
 })
 ```
 
-### Module Example
+### Factory Example
 
 Define module using ES2019 syntax:
 
 ```javascript
-class GreetingModule extends Singular.Module {
+class GreetingFactory extends Singular.Factory {
   static deps = {
     // Logger is required
     logger: true,
