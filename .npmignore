@@ -9,6 +9,7 @@ local/
 logs/
 pids/
 tmp/
+examples/
 
 # OS files
 .DS_Store
