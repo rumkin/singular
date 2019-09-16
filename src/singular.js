@@ -3,6 +3,7 @@ var EventEmitter = require('eventemitter3')
 
 var Factory = require('./factory').Factory
 var createUnit = require('./factory').createUnit
+var finalize = require('./util').finalize
 
 function Singular(options) {
   EventEmitter.call(this)
@@ -166,10 +167,12 @@ Singular.prototype.start = function(threadId, deps) {
 
     self.isStarting += 1
 
-    Promise.resolve(self._start(order, thread))
-    .finally(function() {
-      self.isStarting -= 1
-    })
+    finalize(
+      Promise.resolve(self._start(order, thread)),
+      function() {
+        self.isStarting -= 1
+      }
+    )
     .catch(function(error) {
       return Promise.resolve(self._stop(thread.ready.slice().reverse()))
       .then(function() {
@@ -240,13 +243,15 @@ Singular.prototype.stop = function(threadId) {
 
     self._isStopping += 1
 
-    Promise.resolve(self._stop(order))
-    .finally(function() {
-      self._isStopping -= 1
+    finalize(
+      Promise.resolve(self._stop(order)),
+      function() {
+        self._isStopping -= 1
 
-      delete self.thread[threadId]
-      self.emit('thread:stopped', thread)
-    })
+        delete self.thread[threadId]
+        self.emit('thread:stopped', thread)
+      }
+    )
     .then(resolve, reject)
   })
 }
@@ -281,14 +286,15 @@ Singular.prototype.run = function(deps, fn) {
   var self = this
   self._isRunning += 1
   var id = ++this.threadId
-  return this.start(id, deps)
-  .then(function (thread) {
-    return fn(thread.scope)
-  })
-  .finally(function() {
-    return self.stop(id)
-  })
-  .finally(function() {
+  return finalize(finalize(
+    this.start(id, deps)
+    .then(function (thread) {
+      return fn(thread.scope)
+    }),
+    function() {
+      return self.stop(id)
+    }
+  ), function() {
     self._isRunning -= 1
   })
 }

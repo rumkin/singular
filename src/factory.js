@@ -1,3 +1,5 @@
+var finalize = require('./util').finalize
+
 function Factory (layout) {
   this.deps = Object.assign({}, this.constructor.deps)
   layout = Object.assign({}, layout)
@@ -51,10 +53,12 @@ Factory.prototype.startUnit = function(config, scope, instance) {
 }
 Factory.prototype.stopUnit = function(config, scope, instance) {
   var self = this
-  return Promise.resolve(this.stop(config, scope, instance))
-  .finally(function() {
-    self.scope = null
-  })
+  return finalize(
+    Promise.resolve(this.stop(config, scope, instance)),
+    function() {
+      self.scope = null
+    }
+  )
 }
 Factory.prototype.get = function(name) {
   return this.scope.singular.get(this.layout[name])
