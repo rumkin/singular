@@ -213,10 +213,12 @@ Singular.prototype._stop = function(order) {
   var self = this
   var name = order[0]
   var layout = this.modules[name].layout
+  var module = this.modules[name]
+  var config = Object.assign({}, module.defaults, this.config[name])
 
   return Promise.resolve(
-    this.modules[name].stop(
-      this.config[name], this.createLocalScope(name, layout), this.scope[name]
+    module.stop(
+      config, this.createLocalScope(name, layout), this.scope[name]
     )
   )
   .then(function() {
