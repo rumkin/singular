@@ -269,9 +269,11 @@ Singular.prototype._stop = function(order) {
     return this._stop(order.slice(1))
   }
 
+  var unit = this.units[name]
+
   return Promise.resolve(
-    this.units[name].stopUnit(
-      this.config[name], this.createLocalScope(name), this.scope[name]
+    unit.stopUnit(
+      Object.assign({}, unit.defaults, this.config[name]), this.createLocalScope(name), this.scope[name]
     )
   )
   .then(function() {
