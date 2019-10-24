@@ -6,7 +6,7 @@ function createModule({layout = {}, deps, defaults = {}, start, stop = () => {},
     start = () => value
   }
 
-  const Class = class TestModule extends Singular.Module {
+  const Class = class TestFactory extends Singular.Factory {
     static get defaults() {
       return defaults
     }
@@ -299,9 +299,11 @@ module.exports = ({describe, it}) => describe('Singular', () => {
     })
   })
 
-  describe('Singular.createFactory', () => {
+  describe('Singular.Factory.from()', () => {
     it('should create functional module factory', () => {
-      const factory = Singular.createFactory({}, () => 'factory works')
+      const factory = Singular.Factory.from({
+        start: () => 'factory works',
+      })
 
       const singular = new Singular({
         modules: {
